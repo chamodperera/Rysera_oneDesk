@@ -109,6 +109,7 @@ Deliverables:
 ### **PHASE 2 — Database & Migrations**
 
 **Prompt 2:**
+If database.md file available, consider the database is manually created and check whether you can retrieve data from there and write data to the database according to the schema mentioned in the database.md.
 
 > Using Supabase (PostgreSQL), create SQL migrations for the ER diagram provided: USERS, DEPARTMENTS, SERVICES, OFFICERS, DOCUMENTS, NOTIFICATIONS, FEEDBACKS, TIMESLOTS, APPOINTMENTS.
 >
@@ -118,123 +119,6 @@ Deliverables:
 > * Create database dump after migration.
 > * Ensure `created_at` and `updated_at` columns default to `NOW()` and auto-update.
 
-erDiagram
-    direction TB
-    USERS {
-        INT id PK ""  
-        STRING first_name  ""  
-        STRING last_name  ""  
-        STRING email  ""  
-        STRING phone_number  ""  
-        STRING password_hash  ""  
-        STRING role  ""  
-        DATETIME created_at  ""  
-        DATETIME updated_at  ""  
-    }
-
-    DEPARTMENTS {
-        INT id PK ""  
-        STRING name  ""  
-        TEXT description  ""  
-        STRING contact_email  ""  
-        STRING contact_phone  ""  
-        STRING address  ""  
-        DATETIME created_at  ""  
-        DATETIME updated_at  ""  
-    }
-
-    SERVICES {
-        INT id PK ""  
-        INT department_id FK ""  
-        STRING name  ""  
-        TEXT description  ""  
-        INT duration_minutes  ""  
-        TEXT requirements  ""  
-        DATETIME created_at  ""  
-        DATETIME updated_at  ""  
-    }
-
-    OFFICERS {
-        INT id PK ""  
-        INT user_id FK ""  
-        INT department_id FK ""  
-        STRING position  ""  
-        DATETIME created_at  ""  
-        DATETIME updated_at  ""  
-    }
-
-    DOCUMENTS {
-        INT id PK ""  
-        INT appointment_id FK ""  
-        INT user_id FK ""  
-        STRING file_name  ""  
-        STRING file_path  ""  
-        STRING document_type  ""  
-        DATETIME uploaded_at  ""  
-        STRING status  ""  
-        TEXT comments  ""  
-    }
-
-    NOTIFICATIONS {
-        INT id PK ""  
-        INT user_id FK ""  
-        INT appointment_id FK ""  
-        STRING type  ""  
-        TEXT message  ""  
-        DATETIME sent_at  ""  
-        STRING method  ""  
-        STRING status  ""  
-    }
-
-    FEEDBACKS {
-        INT id PK ""  
-        INT appointment_id FK ""  
-        INT user_id FK ""  
-        INT rating  ""  
-        TEXT comment  ""  
-        DATETIME created_at  ""  
-    }
-
-    TIMESLOTS {
-        INT id PK ""  
-        INT service_id FK ""  
-        DATE slot_date  ""  
-        TIME start_time  ""  
-        TIME end_time  ""  
-        INT capacity  ""  
-        INT slots_available  ""  
-        DATETIME created_at  ""  
-        DATETIME updated_at  ""  
-    }
-
-    APPOINTMENTS {
-        INT id PK ""  
-        INT user_id FK ""  
-        INT service_id FK ""  
-        INT officer_id FK ""  
-        INT timeslot_id FK ""  
-        INT booking_no  ""  
-        STRING status  ""  
-        STRING booking_reference  ""  
-        STRING qr_code  ""  
-        DATETIME created_at  ""  
-        DATETIME updated_at  ""  
-    }
-
-    USERS||--o{APPOINTMENTS:"books"
-    USERS||--o{DOCUMENTS:"uploads"
-    USERS||--o{NOTIFICATIONS:"receives"
-    USERS||--o{FEEDBACKS:"writes"
-    DEPARTMENTS||--o{SERVICES:"offers"
-    DEPARTMENTS||--o{OFFICERS:"employs"
-    SERVICES||--o{APPOINTMENTS:"booked_for"
-    SERVICES||--o{TIMESLOTS:"has"
-    OFFICERS||--o{APPOINTMENTS:"manages"
-    APPOINTMENTS||--o{DOCUMENTS:"includes"
-    APPOINTMENTS||--o{NOTIFICATIONS:"triggers"
-    APPOINTMENTS||--o{FEEDBACKS:"generates"
-    TIMESLOTS||--o{APPOINTMENTS:"reserved_for"
-    USERS||--o|OFFICERS:"</br>"
 
 ---
 
@@ -246,7 +130,7 @@ erDiagram
 >
 > * **Register:** Citizen, Officer, Admin, Superadmin — role assigned at creation (Superadmin only via DB initially).
 > * **Login:** Verify bcrypt password, return signed JWT with role.
-> * **Password Reset:** Generate a one-time token (valid for 1 hour) and email via SendGrid. Endpoint to set a new password using this token.
+> * **Password Reset:** Generate a one-time token (valid for 24 hours) and email via SendGrid. Endpoint to set a new password using this token.
 > * **Role-Based Middleware:** Protect routes so that only the correct role can access. Superadmin has full CRUD on all entities including user creation/deletion.
 
 ---

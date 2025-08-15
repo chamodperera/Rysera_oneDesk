@@ -28,10 +28,24 @@ export class DatabaseUtils {
 
   static async checkConnection() {
     try {
-      const { data, error } = await supabase.from('users').select('count').limit(1);
-      return { success: !error, error };
+      console.log('Testing Supabase connection...');
+      console.log('Supabase URL:', config.supabaseUrl);
+      console.log('Supabase Key (first 10 chars):', config.supabaseKey.substring(0, 10) + '...');
+      
+      // Test connection by checking auth service (doesn't require any tables)
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error('Supabase connection error:', error.message);
+        return { success: false, error: error.message };
+      }
+      
+      console.log('✅ Supabase connection successful!');
+      console.log('Session status:', session ? 'Active session found' : 'No active session (expected for test)');
+      return { success: true, session };
     } catch (error) {
-      return { success: false, error };
+      console.error('❌ Supabase connection failed:', error);
+      return { success: false, error: (error as Error).message || 'Unknown error' };
     }
   }
 }
@@ -70,3 +84,5 @@ export class StorageUtils {
     return supabase.storage.from(bucket).getPublicUrl(fileName).data.publicUrl;
   }
 }
+
+

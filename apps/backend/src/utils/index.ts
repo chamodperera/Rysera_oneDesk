@@ -2,6 +2,7 @@ export * from './auth';
 export * from './dateTime';
 export * from './supabase';
 export * from './email';
+export * from '../__tests__/crud/databaseValidator';
 
 // Validation utilities
 export const validateEmail = (email: string): boolean => {

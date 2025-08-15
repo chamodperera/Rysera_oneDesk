@@ -1,4 +1,26 @@
-// Base model interfaces and types for the Government Appointment Booking System
+// Export all repository classes
+export { BaseRepository } from './BaseRepository';
+export { UserRepository } from './UserRepository';
+export { DepartmentRepository } from './DepartmentRepository';
+export { ServiceRepository } from './ServiceRepository';
+export { AppointmentRepository } from './AppointmentRepository';
+export { TimeslotRepository } from './TimeslotRepository';
+
+// Import classes for instances
+import { UserRepository } from './UserRepository';
+import { DepartmentRepository } from './DepartmentRepository';
+import { ServiceRepository } from './ServiceRepository';
+import { AppointmentRepository } from './AppointmentRepository';
+import { TimeslotRepository } from './TimeslotRepository';
+
+// Create repository instances for easy import
+export const userRepository = new UserRepository();
+export const departmentRepository = new DepartmentRepository();
+export const serviceRepository = new ServiceRepository();
+export const appointmentRepository = new AppointmentRepository();
+export const timeslotRepository = new TimeslotRepository();
+
+// Legacy model interfaces and types (keeping for backward compatibility)
 
 export interface BaseModel {
   id: string;
