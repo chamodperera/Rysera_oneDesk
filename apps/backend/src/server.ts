@@ -11,6 +11,9 @@ export const createServer = (): Express => {
     .use(urlencoded({ extended: true }))
     .use(json())
     .use(cors())
+    .get("/", (_, res) => {
+      return res.json({ message: "Backend server up", status: "running" });
+    })
     .get("/api/health", (_, res) => {
       return res.json({ status: "ok", service: "OneDesk API" });
     })

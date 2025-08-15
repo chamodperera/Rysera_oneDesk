@@ -1,11 +1,10 @@
 import supertest from "supertest";
-import { describe, it, expect } from "@jest/globals";
 import { createServer } from "../server";
 
 describe("Server", () => {
   it("health check returns 200", async () => {
     await supertest(createServer())
-      .get("/status")
+      .get("/api/health")
       .expect(200)
       .then((res) => {
         expect(res.ok).toBe(true);
@@ -14,10 +13,10 @@ describe("Server", () => {
 
   it("message endpoint says hello", async () => {
     await supertest(createServer())
-      .get("/message/jared")
+      .get("/api/message/jared")
       .expect(200)
       .then((res) => {
-        expect(res.body).toEqual({ message: "hello jared" });
+        expect(res.body).toEqual({ message: "Hello jared from OneDesk!" });
       });
   });
 });
