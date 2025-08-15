@@ -1,12 +1,54 @@
-.DS_Store
-node_modules
-.turbo
-*.log
-.next
-dist
-dist-ssr
-*.local
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.vercel/
+dist-ssr/
+
+# Environment variables
 .env
-.cache
-server/dist
-public/dist
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+*.local
+
+# Coverage
+coverage/
+
+# Cache
+.cache/
+
+# Turborepo
+.turbo/
+
+# Build artifacts
+public/dist/
+server/dist/

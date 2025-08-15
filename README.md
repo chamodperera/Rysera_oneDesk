@@ -1,40 +1,65 @@
-# Turborepo kitchen sink starter
+# OneDesk
 
-This Turborepo starter is maintained by the Turborepo core team.
+A comprehensive desk management application built with TypeScript, using Turborepo for monorepo management and pnpm for package management.
 
-This example also shows how to use [Workspace Configurations](https://turborepo.com/docs/core-concepts/monorepos/configuring-workspaces).
+## Getting Started
 
-## Using this example
+### Prerequisites
 
-Run the following command:
+- Node.js >= 18
+- pnpm >= 8
 
-```sh
-npx create-turbo@latest -e kitchen-sink
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+
+```bash
+pnpm install
 ```
 
-## What's inside?
+### Development
 
-This Turborepo includes the following packages and apps:
+Start the development servers:
 
-### Apps and Packages
+```bash
+pnpm dev
+```
 
-- `api`: an [Express](https://expressjs.com/) server
-- `storefront`: a [Next.js](https://nextjs.org/) app
-- `admin`: a [Vite](https://vitejs.dev/) single page app
-- `blog`: a [Remix](https://remix.run/) blog
-- `@repo/eslint-config`: ESLint configurations used throughout the monorepo
-- `@repo/jest-presets`: Jest configurations
-- `@repo/logger`: isomorphic logger (a small wrapper around console.log)
-- `@repo/ui`: a dummy React UI library (which contains `<CounterButton>` and `<Link>` components)
-- `@repo/typescript-config`: tsconfig.json's used throughout the monorepo
+This will start:
+- Frontend (React/Vite) on `http://localhost:3000`
+- Backend (Express API) on `http://localhost:3001`
 
-Each package and app is 100% [TypeScript](https://www.typescriptlang.org/).
+### Building
 
-### Utilities
+Build all applications:
 
-This Turborepo has some additional tools already setup for you:
+```bash
+pnpm build
+```
+
+## Project Structure
+
+This monorepo includes the following:
+
+### Apps
+
+- `frontend`: React application built with Vite
+- `backend`: Express.js API server
+
+### Packages
+
+- `@repo/eslint-config`: Shared ESLint configurations
+- `@repo/jest-presets`: Jest test configurations
+- `@repo/logger`: Isomorphic logging utility
+- `@repo/ui`: Shared React UI components
+- `@repo/typescript-config`: Shared TypeScript configurations
+
+## Technologies
 
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
+- [Turborepo](https://turbo.build/) for monorepo build system
+- [pnpm](https://pnpm.io/) for package management
 - [ESLint](https://eslint.org/) for code linting
-- [Jest](https://jestjs.io) test runner for all things JavaScript
+- [Jest](https://jestjs.io) for testing
 - [Prettier](https://prettier.io) for code formatting

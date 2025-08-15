@@ -11,11 +11,11 @@ export const createServer = (): Express => {
     .use(urlencoded({ extended: true }))
     .use(json())
     .use(cors())
-    .get("/message/:name", (req, res) => {
-      return res.json({ message: `hello ${req.params.name}` });
+    .get("/api/health", (_, res) => {
+      return res.json({ status: "ok", service: "OneDesk API" });
     })
-    .get("/status", (_, res) => {
-      return res.json({ ok: true });
+    .get("/api/message/:name", (req, res) => {
+      return res.json({ message: `Hello ${req.params.name} from OneDesk!` });
     });
 
   return app;
