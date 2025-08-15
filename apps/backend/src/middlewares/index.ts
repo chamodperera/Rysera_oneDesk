@@ -37,6 +37,27 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
   }
 };
 
+// Optional JWT Authentication middleware (doesn't reject if no token)
+export const optionalAuthenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  // If no token provided, just continue without setting req.user
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, config.jwtSecret) as any;
+    req.user = decoded;
+    next();
+  } catch (error) {
+    // If token is invalid, continue without setting req.user
+    // The controller will handle the lack of authentication
+    next();
+  }
+};
+
 // Role-based access control middleware
 export const requireRole = (...roles: UserRole[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
