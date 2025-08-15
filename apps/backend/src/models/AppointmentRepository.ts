@@ -224,4 +224,85 @@ export class AppointmentRepository extends BaseRepository<Appointment, CreateApp
     
     return stats;
   }
+
+  async findAllWithPagination(
+    page: number,
+    limit: number,
+    filters?: {
+      userId?: number;
+      status?: AppointmentStatus;
+      officerId?: number;
+      serviceId?: number;
+      fromDate?: string;
+      toDate?: string;
+      userRole?: string;
+    },
+    sortBy: string = 'created_at',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Promise<{ appointments: AppointmentWithDetails[], count: number }> {
+    let query = this.client
+      .from(this.tableName)
+      .select(`
+        *,
+        user:users(first_name, last_name, email, phone_number),
+        service:services(name, description, duration_minutes,
+          department:departments(name)
+        ),
+        officer:officers(
+          position,
+          user:users(first_name, last_name, email)
+        ),
+        timeslot:timeslots(slot_date, start_time, end_time)
+      `);
+
+    let countQuery = this.client
+      .from(this.tableName)
+      .select('*', { count: 'exact', head: true });
+
+    // Apply filters
+    if (filters?.userId) {
+      query = query.eq('user_id', filters.userId);
+      countQuery = countQuery.eq('user_id', filters.userId);
+    }
+
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+      countQuery = countQuery.eq('status', filters.status);
+    }
+
+    if (filters?.officerId) {
+      query = query.eq('officer_id', filters.officerId);
+      countQuery = countQuery.eq('officer_id', filters.officerId);
+    }
+
+    if (filters?.serviceId) {
+      query = query.eq('service_id', filters.serviceId);
+      countQuery = countQuery.eq('service_id', filters.serviceId);
+    }
+
+    if (filters?.fromDate) {
+      query = query.gte('created_at', filters.fromDate);
+      countQuery = countQuery.gte('created_at', filters.fromDate);
+    }
+
+    if (filters?.toDate) {
+      query = query.lte('created_at', filters.toDate);
+      countQuery = countQuery.lte('created_at', filters.toDate);
+    }
+
+    // Get count
+    const { count } = await countQuery;
+
+    // Get paginated data
+    const { data: appointments, error } = await query
+      .order(sortBy, { ascending: sortOrder === 'asc' })
+      .range((page - 1) * limit, page * limit - 1);
+
+    if (error) throw error;
+
+    return {
+      appointments: appointments || [],
+      count: count || 0
+    };
+  }
 }

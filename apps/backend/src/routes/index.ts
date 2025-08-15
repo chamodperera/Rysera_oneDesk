@@ -6,6 +6,9 @@ import userRoutes from './userRoutes';
 import departmentRoutes from './departmentRoutes';
 import serviceRoutes from './services';
 import officerRoutes from './officers';
+import timeslotRoutes from './timeslots';
+import appointmentRoutes from './appointments';
+import feedbackRoutes from './feedbackRoutes';
 
 const router: RouterType = Router();
 
@@ -29,12 +32,18 @@ router.use('/services', serviceRoutes);
 // Officer routes (Public GET, Admin CRUD, Officer profile)
 router.use('/officers', officerRoutes);
 
+// Timeslot routes (Public GET, Officer/Admin CRUD)
+router.use('/timeslots', timeslotRoutes);
+
+// Appointment routes (Citizens book/view their own, Officers/Admins manage all)
+router.use('/appointments', appointmentRoutes);
+
+// Feedback routes (Citizens submit, Officers/Admins view, Public rating stats)
+router.use('/feedbacks', feedbackRoutes);
+
 // API routes will be added here in future phases
 // Example structure:
-// router.use('/timeslots', timeslotRoutes);
-// router.use('/appointments', appointmentRoutes);
 // router.use('/documents', documentRoutes);
 // router.use('/notifications', notificationRoutes);
-// router.use('/feedback', feedbackRoutes);
 
 export default router;
