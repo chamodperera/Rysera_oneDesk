@@ -1,4 +1,4 @@
-import { Navigation } from "@/components/navigation";
+import { AppLayout } from "@/components/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Calendar,
   Clock,
@@ -18,18 +17,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-// Mock data for demo
-const mockUser = {
-  name: "John Doe",
-  email: "john.doe@email.com",
-  role: "citizen" as const,
-};
-
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation user={mockUser} />
-
+    <AppLayout>
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-primary/10 via-card to-background py-20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -215,6 +205,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-    </div>
+    </AppLayout>
   );
 }

@@ -38,7 +38,7 @@ export function Navigation({ user }: NavigationProps) {
   const citizenNavItems = [
     { href: "/", label: "Home", icon: Home },
     { href: "/services", label: "Services", icon: Calendar },
-    { href: "/dashboard", label: "My Appointments", icon: User },
+    { href: "/dashboard/appointments", label: "My Appointments", icon: User },
   ];
 
   const officerNavItems = [
