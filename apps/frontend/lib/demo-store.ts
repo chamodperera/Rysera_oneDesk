@@ -6,7 +6,8 @@ import {
   Timeslot,
   ScheduleTemplate,
   ScheduleException,
-  Feedback as IFeedback,
+  Feedback,
+  Rating,
 } from "./booking-types";
 import { generateBookingRef } from "./demo-utils";
 import {
@@ -15,13 +16,6 @@ import {
   scheduleTemplates as defaultTemplates,
   scheduleExceptions as defaultExceptions,
 } from "./demo-data";
-
-interface Feedback {
-  appointmentId: string;
-  rating: number;
-  comment: string;
-  createdAt: string;
-}
 
 class AppointmentStore {
   private appointments: Appointment[] = [];
@@ -49,6 +43,9 @@ class AppointmentStore {
         const storedFeedbacks = localStorage.getItem("onedesk-feedbacks");
         if (storedFeedbacks) {
           this.feedbacks = JSON.parse(storedFeedbacks);
+        } else {
+          // Initialize with sample feedback data if none exists
+          this.initializeSampleFeedbacks();
         }
         const storedServices = localStorage.getItem("onedesk-services");
         if (storedServices) {
@@ -108,6 +105,63 @@ class AppointmentStore {
     return () => {
       this.listeners = this.listeners.filter((l) => l !== listener);
     };
+  }
+
+  private initializeSampleFeedbacks() {
+    // Sample feedback data for demo purposes
+    const sampleFeedbacks: Feedback[] = [
+      {
+        id: "fb-1",
+        appointmentId: "app-1",
+        userId: "user-1",
+        serviceId: "passport-renewal",
+        rating: 5,
+        comment:
+          "Excellent service! The staff was very helpful and the process was smooth.",
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+      },
+      {
+        id: "fb-2",
+        appointmentId: "app-2",
+        userId: "user-2",
+        serviceId: "drivers-license",
+        rating: 4,
+        comment:
+          "Good service overall. The wait time was a bit longer than expected but the staff was professional.",
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+      },
+      {
+        id: "fb-3",
+        appointmentId: "app-3",
+        userId: "user-3",
+        serviceId: "business-license",
+        rating: 5,
+        comment:
+          "Amazing experience! Everything was well organized and efficient.",
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+      },
+      {
+        id: "fb-4",
+        appointmentId: "app-4",
+        userId: "user-4",
+        serviceId: "property-tax",
+        rating: 3,
+        comment:
+          "Service was okay but could be improved. The website could be more user-friendly.",
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+      },
+      {
+        id: "fb-5",
+        appointmentId: "app-5",
+        userId: "user-5",
+        serviceId: "passport-renewal",
+        rating: 4,
+        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
+      },
+    ];
+
+    this.feedbacks = sampleFeedbacks;
+    this.save();
   }
 
   createAppointment(
@@ -185,19 +239,70 @@ class AppointmentStore {
     this.save();
   }
 
-  addFeedback(appointmentId: string, rating: number, comment: string) {
+  addFeedback(feedbackData: Omit<Feedback, "id" | "createdAt">): Feedback {
     const feedback: Feedback = {
-      appointmentId,
-      rating,
-      comment,
+      id: `feedback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      ...feedbackData,
       createdAt: new Date().toISOString(),
     };
     this.feedbacks.push(feedback);
     this.save();
+    return feedback;
   }
 
-  getFeedback(appointmentId: string): Feedback | undefined {
+  updateFeedback(id: string, patch: Partial<Feedback>): void {
+    this.feedbacks = this.feedbacks.map((feedback) =>
+      feedback.id === id ? { ...feedback, ...patch } : feedback
+    );
+    this.save();
+  }
+
+  getFeedbackByAppointment(appointmentId: string): Feedback | undefined {
     return this.feedbacks.find((f) => f.appointmentId === appointmentId);
+  }
+
+  getServiceFeedback(serviceId: string): Feedback[] {
+    return this.feedbacks.filter((f) => f.serviceId === serviceId);
+  }
+
+  getServiceRatingStats(serviceId: string): {
+    count: number;
+    avg: number;
+    buckets: Record<Rating, number>;
+  } {
+    const serviceFeedbacks = this.getServiceFeedback(serviceId);
+    const count = serviceFeedbacks.length;
+
+    if (count === 0) {
+      return {
+        count: 0,
+        avg: 0,
+        buckets: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      };
+    }
+
+    const buckets: Record<Rating, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let totalRating = 0;
+
+    serviceFeedbacks.forEach((feedback) => {
+      buckets[feedback.rating]++;
+      totalRating += feedback.rating;
+    });
+
+    return {
+      count,
+      avg: totalRating / count,
+      buckets,
+    };
+  }
+
+  getAllFeedbacks(): Feedback[] {
+    return [...this.feedbacks];
+  }
+
+  // Legacy method for backwards compatibility
+  getFeedback(appointmentId: string): Feedback | undefined {
+    return this.getFeedbackByAppointment(appointmentId);
   }
 
   // Admin methods
@@ -421,7 +526,15 @@ export function useAppointments() {
     updateAppointmentDocs:
       appointmentStore.updateAppointmentDocs.bind(appointmentStore),
     addFeedback: appointmentStore.addFeedback.bind(appointmentStore),
+    updateFeedback: appointmentStore.updateFeedback.bind(appointmentStore),
     getFeedback: appointmentStore.getFeedback.bind(appointmentStore),
+    getFeedbackByAppointment:
+      appointmentStore.getFeedbackByAppointment.bind(appointmentStore),
+    getServiceFeedback:
+      appointmentStore.getServiceFeedback.bind(appointmentStore),
+    getServiceRatingStats:
+      appointmentStore.getServiceRatingStats.bind(appointmentStore),
+    getAllFeedbacks: appointmentStore.getAllFeedbacks.bind(appointmentStore),
     getAppointmentById:
       appointmentStore.getAppointmentById.bind(appointmentStore),
     getAppointmentByRef:

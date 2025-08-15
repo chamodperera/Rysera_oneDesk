@@ -21,6 +21,7 @@ import {
   LogOut,
   Menu,
   X,
+  MessageSquare,
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -51,6 +52,7 @@ export default function AdminLayout({
   const navItems = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/appointments", label: "Appointments", icon: Users },
+    { href: "/admin/feedback", label: "Feedback", icon: MessageSquare },
     { href: "/admin/schedule", label: "Schedule", icon: Calendar },
     { href: "/admin/services", label: "Services", icon: Settings },
   ];

@@ -1,4 +1,4 @@
-import { Service, Timeslot } from "./booking-types";
+import { Service, Timeslot, Feedback } from "./booking-types";
 import { services, timeslots } from "./demo-data";
 
 // Date and time formatting
@@ -146,4 +146,60 @@ export const isDateDisabled = (date: Date): boolean => {
 export const getNextAvailableDate = (serviceId: string): string | null => {
   const availableDates = getAvailableDatesForService(serviceId);
   return availableDates.length > 0 ? availableDates[0] : null;
+};
+
+// Feedback utilities
+export const formatStars = (rating: number): string => {
+  return "★".repeat(rating) + "☆".repeat(5 - rating);
+};
+
+export const toCsv = (
+  feedbacks: Feedback[],
+  servicesMap: Map<string, Service>
+): string => {
+  if (feedbacks.length === 0) {
+    return "No data to export";
+  }
+
+  const headers = [
+    "Feedback ID",
+    "Appointment ID",
+    "Service Name",
+    "Department",
+    "Rating",
+    "Stars",
+    "Comment",
+    "Created Date",
+  ];
+
+  const rows = feedbacks.map((feedback) => {
+    const service = servicesMap.get(feedback.serviceId);
+    return [
+      feedback.id,
+      feedback.appointmentId,
+      service?.name || "Unknown Service",
+      service?.departmentId || "Unknown Department",
+      feedback.rating,
+      formatStars(feedback.rating),
+      feedback.comment ? `"${feedback.comment.replace(/"/g, '""')}"` : "",
+      new Date(feedback.createdAt).toLocaleDateString(),
+    ];
+  });
+
+  return [headers, ...rows].map((row) => row.join(",")).join("\n");
+};
+
+export const downloadCsv = (csvContent: string, filename: string) => {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 };

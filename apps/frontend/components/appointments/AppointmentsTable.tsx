@@ -27,6 +27,8 @@ import {
   Calendar,
 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
+import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
+import { useAppointments } from "@/lib/demo-store";
 import {
   getServiceById,
   getTimeslotById,
@@ -57,7 +59,6 @@ interface AppointmentsTableProps {
   onShowQR: (appointment: Appointment) => void;
   onUploadDocs: (appointment: Appointment) => void;
   onCancel: (appointment: Appointment) => void;
-  onFeedback: (appointment: Appointment) => void;
 }
 
 export function AppointmentsTable({
@@ -66,10 +67,13 @@ export function AppointmentsTable({
   onShowQR,
   onUploadDocs,
   onCancel,
-  onFeedback,
 }: AppointmentsTableProps) {
   const [sortBy, setSortBy] = useState<"date" | "service">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [feedbackAppointment, setFeedbackAppointment] =
+    useState<Appointment | null>(null);
+
+  const { getFeedbackByAppointment } = useAppointments();
 
   const sortedAppointments = [...appointments].sort((a, b) => {
     if (sortBy === "date") {
@@ -101,47 +105,62 @@ export function AppointmentsTable({
       timeslot &&
       new Date(timeslot.date) > new Date();
     const canFeedback = appointment.status === "completed";
+    const existingFeedback = getFeedbackByAppointment(appointment.id);
 
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <div className="flex items-center gap-2">
+        {/* For completed appointments, show only feedback button */}
+        {canFeedback ? (
           <Button
-            variant="ghost"
-            className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-primary"
+            variant={existingFeedback ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setFeedbackAppointment(appointment)}
+            className={
+              existingFeedback
+                ? "bg-green-50 border-green-200 text-green-800 hover:bg-green-100 hover:border-green-300"
+                : "bg-yellow-50 border-yellow-200 text-yellow-800 hover:bg-yellow-100 hover:border-yellow-300"
+            }
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MessageSquare className="mr-2 h-4 w-4" />
+            {existingFeedback ? "View Feedback" : "Leave Feedback"}
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onView(appointment)}>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onShowQR(appointment)}>
-            <QrCode className="mr-2 h-4 w-4" />
-            Show QR Code
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onUploadDocs(appointment)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Documents
-          </DropdownMenuItem>
-          {canCancel && (
-            <DropdownMenuItem
-              onClick={() => onCancel(appointment)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              Cancel Appointment
-            </DropdownMenuItem>
-          )}
-          {canFeedback && (
-            <DropdownMenuItem onClick={() => onFeedback(appointment)}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Leave Feedback
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        ) : (
+          /* For non-completed appointments, show dropdown with all actions */
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onView(appointment)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onShowQR(appointment)}>
+                <QrCode className="mr-2 h-4 w-4" />
+                Show QR Code
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onUploadDocs(appointment)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Documents
+              </DropdownMenuItem>
+              {canCancel && (
+                <DropdownMenuItem
+                  onClick={() => onCancel(appointment)}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancel Appointment
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     );
   };
 
@@ -228,6 +247,21 @@ export function AppointmentsTable({
           })}
         </TableBody>
       </Table>
+
+      {/* Feedback Dialog */}
+      {feedbackAppointment && (
+        <FeedbackDialog
+          appointment={feedbackAppointment}
+          service={getServiceById(feedbackAppointment.serviceId)!}
+          timeslot={getTimeslotById(feedbackAppointment.timeslotId)!}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) {
+              setFeedbackAppointment(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

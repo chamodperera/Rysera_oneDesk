@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,6 @@ import { AppointmentDetailsDialog } from "@/components/appointments/AppointmentD
 import { QRCodeDrawer } from "@/components/appointments/QRCodeDrawer";
 import { DocUploadDrawer } from "@/components/appointments/DocUploadDrawer";
 import { CancelConfirmDialog } from "@/components/appointments/CancelConfirmDialog";
-import { FeedbackDialog } from "@/components/appointments/FeedbackDialog";
 import { CalendarDays, Plus } from "lucide-react";
 import { useAppointments } from "@/lib/demo-store";
 import { getServiceById, getTimeslotById } from "@/lib/demo-utils";
@@ -47,22 +46,21 @@ export default function MyAppointmentsPage() {
   });
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Dialog states
   const [showDetails, setShowDetails] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
 
-  const {
-    appointments,
-    cancelAppointment,
-    updateAppointmentDocs,
-    addFeedback,
-    getFeedback,
-  } = useAppointments();
+  const { appointments, cancelAppointment, updateAppointmentDocs } =
+    useAppointments();
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Filter appointments by status and search/department filters
   const filteredAppointments = useMemo(() => {
@@ -127,11 +125,6 @@ export default function MyAppointmentsPage() {
     setShowCancel(true);
   };
 
-  const handleFeedback = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
-    setShowFeedback(true);
-  };
-
   const confirmCancel = () => {
     if (selectedAppointment) {
       cancelAppointment(selectedAppointment.id);
@@ -150,35 +143,39 @@ export default function MyAppointmentsPage() {
     }
   };
 
-  const handleFeedbackSubmit = (rating: number, comment: string) => {
-    if (selectedAppointment) {
-      addFeedback(selectedAppointment.id, rating, comment);
-      toast({
-        title: "Feedback submitted",
-        description: "Thank you for your feedback (demo)",
-      });
-    }
-  };
-
   const clearFilters = () => {
     setFilters({ search: "", department: "" });
   };
 
-  const appointmentCounts = {
-    all: appointments.length,
-    upcoming: appointments.filter((apt) => {
-      const timeslot = getTimeslotById(apt.timeslotId);
-      return (
-        apt.status === "booked" &&
-        timeslot &&
-        new Date(timeslot.date) >= new Date()
-      );
-    }).length,
-    "in-progress": appointments.filter((apt) => apt.status === "in-progress")
-      .length,
-    completed: appointments.filter((apt) => apt.status === "completed").length,
-    cancelled: appointments.filter((apt) => apt.status === "cancelled").length,
-  };
+  const appointmentCounts = useMemo(() => {
+    if (!isMounted) {
+      return {
+        all: 0,
+        upcoming: 0,
+        "in-progress": 0,
+        completed: 0,
+        cancelled: 0,
+      };
+    }
+
+    return {
+      all: appointments.length,
+      upcoming: appointments.filter((apt) => {
+        const timeslot = getTimeslotById(apt.timeslotId);
+        return (
+          apt.status === "booked" &&
+          timeslot &&
+          new Date(timeslot.date) >= new Date()
+        );
+      }).length,
+      "in-progress": appointments.filter((apt) => apt.status === "in-progress")
+        .length,
+      completed: appointments.filter((apt) => apt.status === "completed")
+        .length,
+      cancelled: appointments.filter((apt) => apt.status === "cancelled")
+        .length,
+    };
+  }, [appointments, isMounted]);
 
   return (
     <AppLayout>
@@ -258,7 +255,6 @@ export default function MyAppointmentsPage() {
                   onShowQR={handleShowQR}
                   onUploadDocs={handleUploadDocs}
                   onCancel={handleCancel}
-                  onFeedback={handleFeedback}
                 />
               ) : (
                 <Card>
@@ -307,14 +303,9 @@ export default function MyAppointmentsPage() {
                 setShowDetails(false);
                 setShowCancel(true);
               }}
-              onFeedback={
-                getFeedback(selectedAppointment.id)
-                  ? undefined
-                  : () => {
-                      setShowDetails(false);
-                      setShowFeedback(true);
-                    }
-              }
+              onFeedback={() => {
+                setShowDetails(false);
+              }}
             />
 
             <QRCodeDrawer
@@ -334,13 +325,6 @@ export default function MyAppointmentsPage() {
               open={showCancel}
               onOpenChange={setShowCancel}
               onConfirm={confirmCancel}
-              bookingRef={selectedAppointment.bookingRef}
-            />
-
-            <FeedbackDialog
-              open={showFeedback}
-              onOpenChange={setShowFeedback}
-              onSubmit={handleFeedbackSubmit}
               bookingRef={selectedAppointment.bookingRef}
             />
           </>

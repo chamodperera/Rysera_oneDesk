@@ -74,6 +74,8 @@ export interface Officer {
   position: string;
 }
 
+export type Rating = 1 | 2 | 3 | 4 | 5;
+
 export interface UploadedFile {
   name: string;
   type: string;
@@ -81,10 +83,13 @@ export interface UploadedFile {
 }
 
 export interface Feedback {
+  id: string;
   appointmentId: string;
-  rating: number;
-  comment: string;
-  createdAt: string;
+  userId?: string;
+  serviceId: string;
+  rating: Rating;
+  comment?: string;
+  createdAt: string; // ISO
 }
 
 export interface BookingStep {
