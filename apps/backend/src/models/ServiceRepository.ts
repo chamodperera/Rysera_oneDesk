@@ -120,4 +120,82 @@ export class ServiceRepository extends BaseRepository<Service, CreateServiceData
       averageRating: Math.round(averageRating * 100) / 100 // Round to 2 decimal places
     };
   }
+
+  async findAllWithPagination(
+    page: number,
+    limit: number,
+    search?: string,
+    departmentId?: number,
+    sortBy: string = 'name',
+    sortOrder: 'asc' | 'desc' = 'asc'
+  ): Promise<{ services: ServiceWithDepartment[]; count: number }> {
+    const offset = (page - 1) * limit;
+    
+    let query = this.client
+      .from(this.tableName)
+      .select(`
+        *,
+        department:departments(name, description)
+      `, { count: 'exact' });
+
+    // Apply department filter
+    if (departmentId) {
+      query = query.eq('department_id', departmentId);
+    }
+
+    // Apply search filter
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,requirements.ilike.%${search}%`);
+    }
+
+    // Apply sorting
+    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+    return { services: data || [], count: count || 0 };
+  }
+
+  async isNameTakenInDepartment(name: string, departmentId: number, excludeId?: number): Promise<boolean> {
+    let query = this.client
+      .from(this.tableName)
+      .select('id')
+      .eq('name', name)
+      .eq('department_id', departmentId);
+    
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    return (data?.length || 0) > 0;
+  }
+
+  async hasAssociatedTimeslots(serviceId: number): Promise<boolean> {
+    const { data, error } = await this.client
+      .from('timeslots')
+      .select('id')
+      .eq('service_id', serviceId)
+      .limit(1);
+
+    if (error) throw error;
+    return (data?.length || 0) > 0;
+  }
+
+  async hasAssociatedAppointments(serviceId: number): Promise<boolean> {
+    const { data, error } = await this.client
+      .from('appointments')
+      .select('id')
+      .eq('service_id', serviceId)
+      .limit(1);
+
+    if (error) throw error;
+    return (data?.length || 0) > 0;
+  }
 }

@@ -153,7 +153,7 @@ We’ll handle them in dependency order:
 >
 > * Linked to departments via `department_id`.
 > * Pagination, filtering by name, sorting.
-> * Only Admin & Superadmin can modify. Public can GET.
+> * Only officer, Admin & Superadmin can modify. Public can GET.
 
 #### **Prompt 4.3 — Officers Module**
 

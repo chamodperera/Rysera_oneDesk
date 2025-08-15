@@ -3,6 +3,7 @@ export { BaseRepository } from './BaseRepository';
 export { UserRepository } from './UserRepository';
 export { DepartmentRepository } from './DepartmentRepository';
 export { ServiceRepository } from './ServiceRepository';
+export { OfficerRepository } from './OfficerRepository';
 export { AppointmentRepository } from './AppointmentRepository';
 export { TimeslotRepository } from './TimeslotRepository';
 
