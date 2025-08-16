@@ -182,7 +182,7 @@ We’ll handle them in dependency order:
 > * Status flow: `Pending` → `In Progress` → `Completed` → (optional) `Cancelled`.
 > * Pagination & filtering by date/status for officer/admin views.
 
-#### **Prompt 4.6 — Documents Module** (SKIPPED)
+#### **Prompt 4.6 — Documents Module** (Done)
 
 > ~~CRUD for documents linked to appointments.~~
 >
@@ -191,15 +191,15 @@ We’ll handle them in dependency order:
 > * ~~Citizens can upload only for their appointments.~~
 >officers should be able to check the documents associated with an appointment
 
-#### **Prompt 4.7 — Notifications Module** (SKIPPED)
+#### **Prompt 4.7 — Notifications Module** (Done)
 
-> ~~Create table + API to log and send notifications.~~
+> Create table + API to log and send notifications.
 >
-> * ~~Email via SendGrid.~~
-> * ~~Send synchronously.~~
-> * ~~Store message, method, status.~~
+> * Email via SendGrid.
+> * Send synchronously.
+> * Store message, method, status.
 
-#### **Prompt 4.8 — Feedback Module** (CURRENT)
+#### **Prompt 4.8 — Feedback Module** (Done)
 
 > Citizens can submit feedback linked to appointment.
 >
