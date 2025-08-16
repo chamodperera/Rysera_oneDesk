@@ -6,6 +6,7 @@ export { ServiceRepository } from './ServiceRepository';
 export { OfficerRepository } from './OfficerRepository';
 export { AppointmentRepository } from './AppointmentRepository';
 export { TimeslotRepository } from './TimeslotRepository';
+export { DocumentRepository } from './DocumentRepository';
 
 // Import classes for instances
 import { UserRepository } from './UserRepository';
@@ -13,6 +14,7 @@ import { DepartmentRepository } from './DepartmentRepository';
 import { ServiceRepository } from './ServiceRepository';
 import { AppointmentRepository } from './AppointmentRepository';
 import { TimeslotRepository } from './TimeslotRepository';
+import { DocumentRepository } from './DocumentRepository';
 
 // Create repository instances for easy import
 export const userRepository = new UserRepository();
@@ -20,6 +22,7 @@ export const departmentRepository = new DepartmentRepository();
 export const serviceRepository = new ServiceRepository();
 export const appointmentRepository = new AppointmentRepository();
 export const timeslotRepository = new TimeslotRepository();
+export const documentRepository = new DocumentRepository('documents');
 
 // Legacy model interfaces and types (keeping for backward compatibility)
 

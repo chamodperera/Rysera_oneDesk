@@ -330,15 +330,20 @@ export class AppointmentController {
         const bookingNo = await this.appointmentRepository.getNextBookingNumber();
         const bookingReference = await this.appointmentRepository.generateBookingReference();
 
-        // Generate QR code
-        const qrData = {
-          booking_reference: bookingReference,
-          booking_no: bookingNo,
-          service: service.name,
-          date: timeslot.slot_date,
-          time: `${timeslot.start_time} - ${timeslot.end_time}`
-        };
-        const qrCode = await QRCode.toDataURL(JSON.stringify(qrData));
+        // Generate QR code - using simple text instead of full JSON to test
+        let qrCode = '';
+        try {
+          const qrData = {
+            booking_reference: bookingReference,
+            booking_no: bookingNo
+          };
+          qrCode = await QRCode.toDataURL(`Booking: ${bookingReference}`);
+          console.log('QR code generated successfully');
+        } catch (qrError) {
+          console.error('QR code generation error:', qrError);
+          qrCode = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(bookingReference);
+          console.log('Using fallback QR URL');
+        }
 
         // Create appointment
         const appointmentData: CreateAppointmentData = {
