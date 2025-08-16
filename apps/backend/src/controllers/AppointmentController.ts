@@ -330,29 +330,14 @@ export class AppointmentController {
         const bookingNo = await this.appointmentRepository.getNextBookingNumber();
         const bookingReference = await this.appointmentRepository.generateBookingReference();
 
-        // Generate QR code - using simple text instead of full JSON to test
-        let qrCode = '';
-        try {
-          const qrData = {
-            booking_reference: bookingReference,
-            booking_no: bookingNo
-          };
-          qrCode = await QRCode.toDataURL(`Booking: ${bookingReference}`);
-          console.log('QR code generated successfully');
-        } catch (qrError) {
-          console.error('QR code generation error:', qrError);
-          qrCode = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(bookingReference);
-          console.log('Using fallback QR URL');
-        }
-
-        // Create appointment
+        // Create appointment first without QR code
         const appointmentData: CreateAppointmentData = {
           user_id: appointmentUserId,
           service_id: serviceIdNum,
           timeslot_id: timeslotIdNum,
           officer_id: assignedOfficerId,
           booking_reference: bookingReference,
-          qr_code: qrCode
+          qr_code: '' // Will be updated after creating appointment
         };
 
         // Set booking number manually since it's auto-generated
@@ -361,7 +346,23 @@ export class AppointmentController {
           booking_no: bookingNo
         } as any);
 
-        // Get appointment with details
+        // Now generate QR code with just the appointment ID
+        let qrCode = '';
+        try {
+          // Only use appointment ID, which is enough to retrieve all details
+          qrCode = await QRCode.toDataURL(`${appointment.id}`);
+          console.log('QR code generated successfully with appointment ID');
+        } catch (qrError) {
+          console.error('QR code generation error:', qrError);
+          qrCode = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + 
+            encodeURIComponent(`${appointment.id}`);
+          console.log('Using fallback QR URL with appointment ID');
+        }
+        
+        // Update the appointment with the QR code
+        await this.appointmentRepository.update(appointment.id, { qr_code: qrCode });
+        
+        // Get appointment with details (now including the QR code)
         const appointmentWithDetails = await this.appointmentRepository.findWithDetails(appointment.id);
 
         // TODO: Send email confirmation (will be implemented in notifications module)
