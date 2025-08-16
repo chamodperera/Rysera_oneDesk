@@ -1,0 +1,75 @@
+version: "3.8"
+
+services:
+  # Frontend Development Service
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile.dev
+      target: development
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    volumes:
+      - ./apps/frontend:/app/apps/frontend:cached
+      - ./packages:/app/packages:cached
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+      - /app/apps/frontend/.next
+    depends_on:
+      - backend-dev
+    networks:
+      - onedesk-dev-network
+    restart: unless-stopped
+
+  # Backend Development Service
+  backend-dev:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.dev
+      target: development
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - CORS_ORIGIN=http://localhost:3000
+    volumes:
+      - ./apps/backend:/app/apps/backend:cached
+      - ./packages:/app/packages:cached
+      - /app/node_modules
+      - /app/apps/backend/node_modules
+      - backend-dev-uploads:/app/uploads
+    networks:
+      - onedesk-dev-network
+    restart: unless-stopped
+
+  # Redis for Development
+  redis-dev:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    networks:
+      - onedesk-dev-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-dev-data:/data
+
+networks:
+  onedesk-dev-network:
+    driver: bridge
+
+volumes:
+  backend-dev-uploads:
+    driver: local
+  redis-dev-data:
+    driver: local
