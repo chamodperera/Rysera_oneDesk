@@ -224,6 +224,8 @@ We’ll handle them in dependency order:
 **Prompt 6:**
 
 > Auto-generate Swagger/OpenAPI docs for all endpoints.
+>Keep order. Start from prompt 4.1 endpoints. Neglect skipped endpoints.
+>update user after each iteration of 4.x endpoint api documenting.
 >
 > * Include request/response schemas.
 > * Include authentication requirements per endpoint.

@@ -6,6 +6,7 @@ import helmet from "helmet";
 import config from "./config";
 import routes from "./routes";
 import { errorHandler } from "./middlewares";
+import { setupCompleteSwagger } from "./docs/swagger.config";
 
 export const createServer = (): Express => {
   const app = express();
@@ -22,9 +23,15 @@ export const createServer = (): Express => {
         message: "Government Appointment Booking System API", 
         status: "running",
         version: "1.0.0",
-        timezone: config.timezone
+        timezone: config.timezone,
+        documentation: "/api-docs"
       });
-    })
+    });
+
+  // Setup Complete Swagger documentation
+  setupCompleteSwagger(app);
+
+  app
     // API routes
     .use("/api", routes)
     // Error handling middleware (should be last)
