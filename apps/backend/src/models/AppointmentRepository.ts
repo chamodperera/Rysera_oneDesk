@@ -305,4 +305,76 @@ export class AppointmentRepository extends BaseRepository<Appointment, CreateApp
       count: count || 0
     };
   }
+
+  /**
+   * Find appointments scheduled for tomorrow that need reminder emails
+   * (24 hours from now, considering Sri Lanka timezone)
+   */
+  async findAppointmentsForReminder(targetDate: string): Promise<AppointmentWithDetails[]> {
+    const { data, error } = await this.client
+      .from(this.tableName)
+      .select(`
+        *,
+        user:users!appointments_user_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email,
+          phone_number
+        ),
+        service:services!appointments_service_id_fkey(
+          name,
+          description,
+          duration_minutes,
+          department:departments!services_department_id_fkey(
+            name
+          )
+        ),
+        officer:officers!appointments_officer_id_fkey(
+          position,
+          user:users!officers_user_id_fkey(
+            id,
+            first_name,
+            last_name,
+            email
+          )
+        ),
+        timeslot:timeslots!appointments_timeslot_id_fkey(
+          slot_date,
+          start_time,
+          end_time
+        )
+      `)
+      .eq('timeslot.slot_date', targetDate)
+      .in('status', ['pending', 'confirmed'])
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to find appointments for reminder: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  /**
+   * Check if reminder has already been sent for an appointment
+   * by checking the notifications table
+   */
+  async hasReminderBeenSent(appointmentId: number): Promise<boolean> {
+    const { data, error } = await this.client
+      .from('notifications')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .eq('type', 'generic') // Using 'generic' for now as 'appointment_reminder' may not be in DB
+      .eq('status', 'sent')
+      .ilike('message', '%reminder%') // Additional filter to identify reminder notifications
+      .limit(1);
+
+    if (error) {
+      console.warn(`Error checking reminder status for appointment ${appointmentId}:`, error.message);
+      return false; // If we can't check, assume not sent to be safe
+    }
+
+    return (data && data.length > 0);
+  }
 }
