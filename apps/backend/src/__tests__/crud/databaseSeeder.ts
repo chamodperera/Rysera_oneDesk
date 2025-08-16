@@ -104,7 +104,7 @@ export class DatabaseSeeder {
           last_name: 'Doe',
           email: 'john.doe@example.com',
           phone_number: '+94771234567',
-          password_hash: await hashPassword('password123'),
+          password_hash: await hashPassword('citizen123'),
           role: UserRole.CITIZEN
         },
         {
@@ -112,7 +112,7 @@ export class DatabaseSeeder {
           last_name: 'Smith',
           email: 'jane.smith@example.com',
           phone_number: '+94777654321',
-          password_hash: await hashPassword('password123'),
+          password_hash: await hashPassword('citizen123'),
           role: UserRole.CITIZEN
         },
         {
