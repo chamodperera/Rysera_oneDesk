@@ -10,6 +10,7 @@ import timeslotRoutes from './timeslots';
 import appointmentRoutes from './appointments';
 import feedbackRoutes from './feedbackRoutes';
 import documentRoutes from './documentRoutes';
+import notificationRoutes from './notificationRoutes';
 
 const router: RouterType = Router();
 
@@ -44,6 +45,9 @@ router.use('/feedbacks', feedbackRoutes);
 
 // Document routes (Test upload functionality)
 router.use('/documents', documentRoutes);
+
+// Notification routes (Email notifications and logging)
+router.use('/notifications', notificationRoutes);
 
 // API routes will be added here in future phases
 // Example structure:
