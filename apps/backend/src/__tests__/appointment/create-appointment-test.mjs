@@ -1,5 +1,5 @@
 // Test file to create an appointment using the modified QR code logic
-// Run with: node create-appointment-test.js
+// Run with: node create-appointment-test.mjs
 
 const BASE_URL = 'http://localhost:3001/api';
 
@@ -65,6 +65,26 @@ async function createAppointmentAsCitizen() {
       } catch (e) {
         // Not JSON, just use the text
       }
+      
+      // If we get an error about existing appointment, try to fetch existing appointments
+      if (error.includes('already has an appointment')) {
+        console.log('👉 Fetching existing user appointments instead...');
+        
+        const existingAppointmentsResponse = await fetch(`${BASE_URL}/appointments`, {
+          headers: {
+            'Authorization': `Bearer ${citizenToken}`
+          }
+        });
+        
+        if (existingAppointmentsResponse.ok) {
+          const existingData = await existingAppointmentsResponse.json();
+          if (existingData.data && existingData.data.length > 0) {
+            console.log('✅ Found existing appointment');
+            console.log(JSON.stringify(existingData.data[0], null, 2));
+            return existingData;
+          }
+        }
+      }
     }
   } catch (error) {
     console.log('❌ Error:', error.message);
@@ -87,6 +107,15 @@ async function testAppointmentCreation() {
     // Only log the first 100 characters as the base64 string is very long
     if (appointment.appointment.qr_code) {
       console.log('QR Code (first 100 chars): ' + appointment.appointment.qr_code.substring(0, 100) + '...');
+      
+      // Check if QR code contains appointment ID
+      if (appointment.appointment.qr_code.includes(appointment.appointment.id.toString())) {
+        console.log('✅ QR code contains appointment ID');
+      } else if (appointment.appointment.qr_code.startsWith('data:image/png;base64,')) {
+        console.log('ℹ️ QR code is a base64 image, cannot check content directly');
+      } else {
+        console.log('⚠️ QR code does not seem to contain appointment ID');
+      }
     }
   }
 }
