@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,18 +22,61 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  useAuthStore,
+  useUser,
+  useUserRole,
+  useIsAuthenticated,
+} from "@/lib/auth-store";
+import { useToast } from "@/hooks/use-toast";
 
 interface NavigationProps {
   user?: {
     name: string;
     email: string;
-    role: "citizen" | "officer";
+    role: "citizen" | "officer" | "admin";
     avatar?: string;
   };
 }
 
-export function Navigation({ user }: NavigationProps) {
+export function Navigation({ user: propUser }: NavigationProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { success } = useToast();
+  const { logout } = useAuthStore();
+  const storeUser = useUser();
+  const userRole = useUserRole();
+  const isAuthenticated = useIsAuthenticated();
+
+  // Use store user if available, fallback to prop user
+  const user = storeUser || propUser;
+  const role = userRole || propUser?.role;
+
+  // Helper to get display name
+  const getDisplayName = (user: typeof storeUser | typeof propUser) => {
+    if (!user) return "";
+    if ("name" in user) return user.name;
+    return `${user.first_name} ${user.last_name}`;
+  };
+
+  // Helper to get initials
+  const getInitials = (user: typeof storeUser | typeof propUser) => {
+    const name = getDisplayName(user);
+    return name
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  const handleLogout = () => {
+    logout();
+    success({
+      title: "Logged out",
+      description: "You have been successfully logged out.",
+    });
+    router.push("/");
+  };
 
   const citizenNavItems = [
     { href: "/", label: "Home", icon: Home },
@@ -41,12 +84,30 @@ export function Navigation({ user }: NavigationProps) {
     { href: "/dashboard/appointments", label: "My Appointments", icon: User },
   ];
 
+  const unauthenticatedNavItems = [
+    { href: "/", label: "Home", icon: Home },
+    { href: "/services", label: "Services", icon: Calendar },
+  ];
+
   const officerNavItems = [
     { href: "/officer/dashboard", label: "Officer Dashboard", icon: Users },
     { href: "/officer/schedule", label: "Schedule", icon: Calendar },
   ];
 
-  const navItems = user?.role === "officer" ? officerNavItems : citizenNavItems;
+  const adminNavItems = [
+    { href: "/admin/dashboard", label: "Admin Dashboard", icon: Settings },
+    { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/departments", label: "Departments", icon: Settings },
+  ];
+
+  const getNavItems = () => {
+    if (!isAuthenticated) return unauthenticatedNavItems;
+    if (role === "admin") return adminNavItems;
+    if (role === "officer") return officerNavItems;
+    return citizenNavItems;
+  };
+
+  const navItems = getNavItems();
 
   return (
     <header className="border-b border-border bg-card">
@@ -104,12 +165,12 @@ export function Navigation({ user }: NavigationProps) {
                     className="relative h-8 w-8 rounded-full"
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarImage
+                        src={(user as { avatar?: string })?.avatar}
+                        alt={getDisplayName(user)}
+                      />
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        {user.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                        {getInitials(user)}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -118,13 +179,17 @@ export function Navigation({ user }: NavigationProps) {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {user.name}
+                        {getDisplayName(user)}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
                         {user.email}
                       </p>
                       <Badge variant="secondary" className="w-fit">
-                        {user.role === "officer" ? "Officer" : "Citizen"}
+                        {role === "officer"
+                          ? "Officer"
+                          : role === "admin"
+                            ? "Admin"
+                            : "Citizen"}
                       </Badge>
                     </div>
                   </DropdownMenuLabel>
@@ -138,7 +203,7 @@ export function Navigation({ user }: NavigationProps) {
                     <span>Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>

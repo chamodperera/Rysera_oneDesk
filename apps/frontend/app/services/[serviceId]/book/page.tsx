@@ -22,12 +22,15 @@ import { ArrowLeft, ArrowRight, FileText, CheckCircle } from "lucide-react";
 import { services, departments, generateTimeslots } from "@/lib/demo-data";
 import { humanServiceDuration } from "@/lib/demo-utils";
 import { appointmentStore } from "@/lib/demo-store";
+import { useIsAuthenticated, useUser } from "@/lib/auth-store";
 import type { Timeslot } from "@/lib/booking-types";
 
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
   const serviceId = params.serviceId as string;
+  const isAuthenticated = useIsAuthenticated();
+  const user = useUser();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState<Date>();
@@ -58,6 +61,29 @@ export default function BookingPage() {
   }, [service, router]);
 
   useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
+      router.push(
+        `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`
+      );
+      return;
+    }
+  }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    // Pre-fill form data with user information if authenticated
+    if (isAuthenticated && user) {
+      setFormData((prevData) => ({
+        ...prevData,
+        firstName: user.first_name || prevData.firstName,
+        lastName: user.last_name || prevData.lastName,
+        email: user.email || prevData.email,
+        phone: user.phone_number || prevData.phone,
+      }));
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
     if (selectedDate) {
       const dateStr = selectedDate.toISOString().split("T")[0];
       const filteredTimeslots = generateTimeslots().filter(
@@ -84,6 +110,15 @@ export default function BookingPage() {
   };
 
   const handleSubmit = () => {
+    // Check if user is authenticated before allowing booking
+    if (!isAuthenticated) {
+      // Redirect to login with return URL
+      router.push(
+        `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`
+      );
+      return;
+    }
+
     if (!selectedDate || !selectedTimeslot) return;
 
     const bookingRef = appointmentStore.createAppointment({
@@ -99,7 +134,7 @@ export default function BookingPage() {
         size: f.size,
       })),
       status: "booked",
-      userId: undefined,
+      userId: user?.id ? user.id.toString() : undefined,
     });
 
     // Find the appointment by booking reference to get the ID

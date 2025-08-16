@@ -1,3 +1,5 @@
+"use client";
+
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +18,10 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { useIsAuthenticated } from "@/lib/auth-store";
 
 export default function HomePage() {
+  const isAuthenticated = useIsAuthenticated();
   return (
     <AppLayout>
       {/* Hero Section */}
@@ -44,9 +48,11 @@ export default function HomePage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/dashboard">View My Appointments</Link>
-              </Button>
+              {isAuthenticated && (
+                <Button size="lg" variant="outline" asChild>
+                  <Link href="/dashboard">View My Appointments</Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>

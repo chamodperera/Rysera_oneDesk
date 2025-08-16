@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,10 +10,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle } from "lucide-react";
+import { useAuthStore } from "@/lib/auth-store";
+import { Loader2, AlertCircle } from "lucide-react";
 
 export default function RegisterPage() {
-  const { toast } = useToast();
+  const router = useRouter();
+  const { success, error: showError } = useToast();
+  const { register, isLoading, error, clearError } = useAuthStore();
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -21,16 +26,51 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
   });
-  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Registration data:", formData);
-    toast({
-      title: "TODO: connect Supabase",
-      description: "Registration functionality will be implemented later.",
+    clearError();
+
+    // Validate password confirmation
+    if (formData.password !== formData.confirmPassword) {
+      showError({
+        title: "Password Mismatch",
+        description: "Passwords do not match. Please try again.",
+      });
+      return;
+    }
+
+    const result = await register({
+      email: formData.email,
+      password: formData.password,
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      phone_number: formData.phoneNumber,
+      role: "citizen", // Default role for public registration
     });
-    setShowSuccessAlert(true);
+
+    if (result.success) {
+      success({
+        title: "Welcome to OneDesk!",
+        description: "Your account has been created successfully.",
+      });
+
+      // Get the current user from the store to determine redirect route
+      const currentUser = useAuthStore.getState().user;
+
+      // Redirect based on user role (new registrations are typically citizens)
+      if (currentUser?.role === "admin" || currentUser?.role === "officer") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
+    } else {
+      showError({
+        title: "Registration Failed",
+        description:
+          result.error || "Please check your information and try again.",
+      });
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -42,12 +82,10 @@ export default function RegisterPage() {
       title="Create Account"
       subtitle="Join OneDesk to book your appointments"
     >
-      {showSuccessAlert && (
-        <Alert className="border-green-200 bg-green-50/50 text-green-800 mb-4">
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>
-            Account created (demo). Check your email to verify.
-          </AlertDescription>
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
@@ -63,6 +101,7 @@ export default function RegisterPage() {
               onChange={(e) => handleInputChange("firstName", e.target.value)}
               className="focus-visible:ring-2 focus-visible:ring-primary"
               required
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -75,6 +114,7 @@ export default function RegisterPage() {
               onChange={(e) => handleInputChange("lastName", e.target.value)}
               className="focus-visible:ring-2 focus-visible:ring-primary"
               required
+              disabled={isLoading}
             />
           </div>
         </div>
@@ -89,6 +129,7 @@ export default function RegisterPage() {
             onChange={(e) => handleInputChange("email", e.target.value)}
             className="focus-visible:ring-2 focus-visible:ring-primary"
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -97,11 +138,12 @@ export default function RegisterPage() {
           <Input
             id="phoneNumber"
             type="tel"
-            placeholder="+1 (555) 123-4567"
+            placeholder="+94771234567"
             value={formData.phoneNumber}
             onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
             className="focus-visible:ring-2 focus-visible:ring-primary"
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -113,6 +155,7 @@ export default function RegisterPage() {
             value={formData.password}
             onChange={(e) => handleInputChange("password", e.target.value)}
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -125,25 +168,24 @@ export default function RegisterPage() {
             onChange={(e) =>
               handleInputChange("confirmPassword", e.target.value)
             }
-            className={
-              formData.confirmPassword &&
-              formData.password !== formData.confirmPassword
-                ? "border-red-500 focus-visible:ring-red-500"
-                : ""
-            }
             required
+            disabled={isLoading}
           />
-          {formData.confirmPassword &&
-            formData.password !== formData.confirmPassword && (
-              <p className="text-sm text-red-600">Passwords do not match</p>
-            )}
         </div>
 
         <Button
           type="submit"
           className="w-full bg-primary text-primary-foreground hover:opacity-90"
+          disabled={isLoading}
         >
-          Create Account
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            "Create Account"
+          )}
         </Button>
       </form>
 

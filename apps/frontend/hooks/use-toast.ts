@@ -4,13 +4,14 @@ import * as React from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 5000; // 5 seconds instead of 1,000,000ms
 
 type ToasterToast = ToastProps & {
   id: string;
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: ToastActionElement;
+  variant?: "default" | "destructive" | "success";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
@@ -82,8 +83,16 @@ export const reducer = (state: State, action: Action): State => {
       const { toastId } = action;
 
       if (toastId) {
+        // Clear the timeout for this specific toast
+        if (toastTimeouts.has(toastId)) {
+          clearTimeout(toastTimeouts.get(toastId));
+          toastTimeouts.delete(toastId);
+        }
         addToRemoveQueue(toastId);
       } else {
+        // Clear all timeouts
+        toastTimeouts.forEach((timeout) => clearTimeout(timeout));
+        toastTimeouts.clear();
         state.toasts.forEach((toast) => {
           addToRemoveQueue(toast.id);
         });
@@ -150,6 +159,9 @@ function toast({ ...props }: Toast) {
     },
   });
 
+  // Start the auto-dismiss timer
+  addToRemoveQueue(id);
+
   return {
     id: id,
     dismiss,
@@ -174,6 +186,10 @@ function useToast() {
     ...state,
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    success: (props: Omit<Toast, "variant">) =>
+      toast({ ...props, variant: "success" }),
+    error: (props: Omit<Toast, "variant">) =>
+      toast({ ...props, variant: "destructive" }),
   };
 }
 

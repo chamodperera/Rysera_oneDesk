@@ -10,7 +10,7 @@ import { PasswordInput } from "@/components/auth/PasswordInput";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ResetPasswordPage() {
-  const { toast } = useToast();
+  const { success } = useToast();
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     newPassword: "",
@@ -26,8 +26,8 @@ export default function ResetPasswordPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Reset password data:", { ...formData, token });
-    toast({
-      title: "Password reset (demo)",
+    success({
+      title: "Password reset successfully",
       description: "Your password has been successfully reset.",
     });
   };

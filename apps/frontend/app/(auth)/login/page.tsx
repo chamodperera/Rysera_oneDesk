@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,26 +11,71 @@ import { Separator } from "@/components/ui/separator";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/lib/auth-store";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { success, error: showError } = useToast();
+  const { login, isLoading, error, clearError } = useAuthStore();
+
+  const returnUrl = searchParams.get("returnUrl");
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Citizen login data:", formData);
-    toast({
-      title: "TODO: connect Supabase",
-      description: "Citizen login functionality will be implemented later.",
+    clearError();
+
+    const result = await login({
+      email: formData.email,
+      password: formData.password,
     });
+
+    if (result.success) {
+      success({
+        title: "Welcome back!",
+        description: "You have been successfully logged in.",
+      });
+
+      // If there's a return URL, redirect there, otherwise use role-based routing
+      if (returnUrl) {
+        router.push(returnUrl);
+      } else {
+        // Get the current user from the store to determine redirect route
+        const currentUser = useAuthStore.getState().user;
+
+        // Redirect based on user role
+        if (currentUser?.role === "admin" || currentUser?.role === "officer") {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard");
+        }
+      }
+    } else {
+      showError({
+        title: "Login Failed",
+        description:
+          result.error || "Please check your credentials and try again.",
+      });
+    }
   };
 
   return (
     <AuthCard title="Sign In" subtitle="Welcome back to OneDesk">
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
@@ -43,6 +89,7 @@ export default function LoginPage() {
             }
             className="focus-visible:ring-2 focus-visible:ring-primary"
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -56,6 +103,7 @@ export default function LoginPage() {
               setFormData({ ...formData, password: e.target.value })
             }
             required
+            disabled={isLoading}
           />
         </div>
 
@@ -67,6 +115,7 @@ export default function LoginPage() {
               onCheckedChange={(checked: boolean) =>
                 setFormData({ ...formData, rememberMe: checked })
               }
+              disabled={isLoading}
             />
             <Label htmlFor="remember" className="text-sm">
               Remember me
@@ -83,8 +132,16 @@ export default function LoginPage() {
         <Button
           type="submit"
           className="w-full bg-primary text-primary-foreground hover:opacity-90"
+          disabled={isLoading}
         >
-          Sign In
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Signing in...
+            </>
+          ) : (
+            "Sign In"
+          )}
         </Button>
       </form>
 

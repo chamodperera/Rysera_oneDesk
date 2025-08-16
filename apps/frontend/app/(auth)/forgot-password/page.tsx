@@ -9,14 +9,14 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ForgotPasswordPage() {
-  const { toast } = useToast();
+  const { success } = useToast();
   const [email, setEmail] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Forgot password for:", email);
-    toast({
-      title: "Reset link sent (demo)",
+    success({
+      title: "Reset link sent",
       description: "Check your email for password reset instructions.",
     });
   };

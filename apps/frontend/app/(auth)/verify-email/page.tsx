@@ -20,11 +20,7 @@ export default function VerifyEmailPage() {
   }, [searchParams]);
 
   return (
-    <AuthCard
-      title="Email Verification"
-      subtitle="Verify your email address"
-      showDemoBanner={false}
-    >
+    <AuthCard title="Email Verification" subtitle="Verify your email address">
       {token && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800">
@@ -64,7 +60,7 @@ export default function VerifyEmailPage() {
         <Alert className="border-green-200 bg-green-50/50 text-green-800 mb-4">
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            Email verified (demo). Your account is now active!
+            Email verified successfully! Your account is now active!
           </AlertDescription>
         </Alert>
       ) : (
@@ -72,8 +68,8 @@ export default function VerifyEmailPage() {
         <Alert className="border-red-200 bg-red-50/50 text-red-800 mb-4">
           <XCircle className="h-4 w-4" />
           <AlertDescription>
-            Invalid or expired link (demo). Please request a new verification
-            email.
+            Invalid or expired verification link. Please request a new
+            verification email.
           </AlertDescription>
         </Alert>
       )}

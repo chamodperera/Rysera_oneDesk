@@ -17,10 +17,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Clock, FileText, Calendar } from "lucide-react";
 import { departments, services } from "@/lib/demo-data";
 import { humanServiceDuration } from "@/lib/demo-utils";
+import { useIsAuthenticated } from "@/lib/auth-store";
 
 export default function ServicesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const isAuthenticated = useIsAuthenticated();
 
   // Filter services based on search and department
   const filteredServices = services.filter((service) => {
@@ -139,15 +141,29 @@ export default function ServicesPage() {
                 </div>
 
                 {/* Book Button */}
-                <Button
-                  asChild
-                  className="w-full bg-primary text-primary-foreground hover:opacity-90"
-                >
-                  <Link href={`/services/${service.id}/book`}>
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Book Appointment
-                  </Link>
-                </Button>
+                {isAuthenticated ? (
+                  <Button
+                    asChild
+                    className="w-full bg-primary text-primary-foreground hover:opacity-90"
+                  >
+                    <Link href={`/services/${service.id}/book`}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Book Appointment
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    asChild
+                    className="w-full bg-primary text-primary-foreground hover:opacity-90"
+                  >
+                    <Link
+                      href={`/login?returnUrl=${encodeURIComponent(`/services/${service.id}/book`)}`}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Sign In to Book
+                    </Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
