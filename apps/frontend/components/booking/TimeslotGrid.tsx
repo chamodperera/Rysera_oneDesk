@@ -3,13 +3,21 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Users } from "lucide-react";
-import { Timeslot } from "@/lib/booking-types";
-import { formatTime } from "@/lib/demo-utils";
+import { Timeslot } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+// Helper function to format time from HH:MM to readable format
+const formatTime = (timeString: string) => {
+  const [hours, minutes] = timeString.split(":");
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
 
 interface TimeslotGridProps {
   timeslots: Timeslot[];
-  selectedTimeslotId?: string;
+  selectedTimeslotId?: number;
   onTimeslotSelect: (timeslot: Timeslot) => void;
   loading?: boolean;
 }
@@ -44,36 +52,72 @@ export function TimeslotGrid({
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
       {timeslots.map((timeslot) => {
         const isSelected = selectedTimeslotId === timeslot.id;
-        const isAvailable = timeslot.available > 0;
-        const availabilityText =
-          timeslot.available === 1 ? "1 left" : `${timeslot.available} left`;
+
+        // Use the correct properties from the backend response
+        const capacity = timeslot.capacity;
+        const slotsAvailable = timeslot.slots_available;
+        const bookedSlots = capacity - slotsAvailable;
+
+        // Check if the timeslot is full (no available slots)
+        const isFull = slotsAvailable === 0;
+        const isAvailable = slotsAvailable > 0;
+
+        // Create availability text
+        const availabilityText = isFull
+          ? "Full"
+          : slotsAvailable === 1
+            ? "1 slot left"
+            : `${slotsAvailable} slots left`;
 
         return (
           <Button
             key={timeslot.id}
             variant={isSelected ? "default" : "outline"}
             className={cn(
-              "h-auto p-3 flex flex-col items-center justify-center space-y-1 transition-all",
+              "h-auto p-4 flex flex-col items-center justify-center space-y-2 transition-all border-2",
               isSelected &&
-                "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2",
-              !isAvailable && "opacity-50 cursor-not-allowed",
+                "bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2 border-blue-600",
+              isFull &&
+                "opacity-60 cursor-not-allowed border-red-200 bg-red-50",
               isAvailable &&
                 !isSelected &&
-                "hover:border-primary hover:bg-blue-50"
+                "hover:border-blue-400 hover:bg-blue-50 border-gray-200",
+              !isAvailable && !isFull && "border-gray-200 bg-gray-50"
             )}
-            disabled={!isAvailable}
+            disabled={isFull}
             onClick={() => isAvailable && onTimeslotSelect(timeslot)}
           >
+            {/* Service name (if available) */}
+            {timeslot.service?.name && (
+              <div className="text-xs text-center text-gray-600 font-medium mb-1">
+                {timeslot.service.name}
+              </div>
+            )}
+
             {/* Time Range */}
             <div className="font-medium text-sm">
-              {formatTime(timeslot.start)}
+              {formatTime(timeslot.start_time)} -{" "}
+              {formatTime(timeslot.end_time)}
             </div>
 
-            {/* Availability */}
+            {/* Date (if needed) */}
+            <div className="text-xs text-gray-500">
+              {new Date(timeslot.slot_date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+            </div>
+
+            {/* Availability Status */}
             <div className="flex items-center space-x-1">
               <Users className="h-3 w-3" />
-              <span className="text-xs">
-                {isAvailable ? availabilityText : "Full"}
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  isFull ? "text-red-600" : "text-green-600"
+                )}
+              >
+                {availabilityText}
               </span>
             </div>
 
@@ -81,12 +125,12 @@ export function TimeslotGrid({
             <Badge
               variant={isAvailable ? "secondary" : "destructive"}
               className={cn(
-                "text-xs px-1 py-0",
-                isAvailable && "bg-green-100 text-green-800",
-                !isAvailable && "bg-red-100 text-red-800"
+                "text-xs px-2 py-0.5",
+                isAvailable && "bg-green-100 text-green-800 border-green-200",
+                isFull && "bg-red-100 text-red-800 border-red-200"
               )}
             >
-              {timeslot.available}/{timeslot.capacity}
+              {bookedSlots}/{capacity} booked
             </Badge>
           </Button>
         );

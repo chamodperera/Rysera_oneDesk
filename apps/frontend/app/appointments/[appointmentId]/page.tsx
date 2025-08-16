@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle,
   Calendar,
@@ -18,34 +18,80 @@ import {
   MapPin,
   Phone,
   Mail,
-  FileText,
   ArrowLeft,
   Download,
 } from "lucide-react";
-import { appointmentStore } from "@/lib/demo-store";
-import { services, departments, timeslots } from "@/lib/demo-data";
-import { humanServiceDuration } from "@/lib/demo-utils";
-import type { Appointment } from "@/lib/booking-types";
+import { useAppointmentBookingStore } from "@/lib/appointment-booking-store";
+import { useIsAuthenticated } from "@/lib/auth-store";
+import { useToast } from "@/hooks/use-toast";
+import type { Appointment } from "@/lib/api";
+
+// Helper function to format time from HH:MM to readable format
+const formatTime = (timeString: string) => {
+  const [hours, minutes] = timeString.split(":");
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
+
+// Helper function to get human readable duration
+const humanServiceDuration = (minutes: number) => {
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""}`;
+    }
+    return `${hours} hour${hours > 1 ? "s" : ""} ${remainingMinutes} min`;
+  }
+  return `${minutes} minutes`;
+};
 
 export default function AppointmentConfirmationPage() {
   const params = useParams();
   const router = useRouter();
-  const appointmentId = params.appointmentId as string;
+  const { toast } = useToast();
+  const appointmentId = parseInt(params.appointmentId as string, 10);
+  const isAuthenticated = useIsAuthenticated();
 
-  const appointment = appointmentStore
-    .getAppointments()
-    .find((a: Appointment) => a.id === appointmentId);
-  const service = appointment
-    ? services.find((s) => s.id === appointment.serviceId)
-    : null;
-  const department = service
-    ? departments.find((d) => d.id === service.departmentId)
-    : null;
-  const timeslot = appointment
-    ? timeslots.find((t) => t.id === appointment.timeslotId)
-    : null;
+  const { fetchAppointmentById, loading } = useAppointmentBookingStore();
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
 
-  if (!appointment || !service || !department || !timeslot) {
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+
+    const loadAppointment = async () => {
+      const appointmentData = await fetchAppointmentById(appointmentId);
+      if (appointmentData) {
+        setAppointment(appointmentData);
+      } else {
+        toast({
+          title: "Appointment not found",
+          description: "The requested appointment could not be found.",
+          variant: "destructive",
+        });
+        router.push("/dashboard/appointments");
+      }
+    };
+
+    loadAppointment();
+  }, [appointmentId, fetchAppointmentById, isAuthenticated, router, toast]);
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!appointment) {
     return (
       <AppLayout>
         <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -101,10 +147,10 @@ export default function AppointmentConfirmationPage() {
                 Reference Number
               </div>
               <div className="text-xl font-bold text-blue-900">
-                {appointment.id.toUpperCase()}
+                {appointment.booking_reference}
               </div>
               <div className="text-sm text-blue-600 mt-1">
-                Keep this number for your records
+                Keep this reference number for your records
               </div>
             </div>
 
@@ -115,22 +161,20 @@ export default function AppointmentConfirmationPage() {
               </h3>
               <div className="space-y-2">
                 <div>
-                  <span className="font-medium">Service:</span> {service.name}
+                  <span className="font-medium">Service:</span>{" "}
+                  {appointment.service?.name || "N/A"}
                 </div>
-                <div>
-                  <Badge
-                    variant="secondary"
-                    className="bg-blue-100 text-blue-800"
-                  >
-                    {department.name}
-                  </Badge>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-4 w-4 mr-2" />
-                  <span>
-                    Duration: {humanServiceDuration(service.durationMinutes)}
-                  </span>
-                </div>
+                {appointment.service && (
+                  <div className="flex items-center text-gray-600">
+                    <Clock className="h-4 w-4 mr-2" />
+                    <span>
+                      Duration:{" "}
+                      {humanServiceDuration(
+                        appointment.service.duration_minutes
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -140,12 +184,18 @@ export default function AppointmentConfirmationPage() {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                  <span>{new Date(timeslot.date).toLocaleDateString()}</span>
+                  <span>
+                    {appointment.timeslot
+                      ? new Date(appointment.timeslot.date).toLocaleDateString()
+                      : "N/A"}
+                  </span>
                 </div>
                 <div className="flex items-center">
                   <Clock className="h-4 w-4 mr-2 text-gray-500" />
                   <span>
-                    {timeslot.start} - {timeslot.end}
+                    {appointment.timeslot
+                      ? `${formatTime(appointment.timeslot.start_time)} - ${formatTime(appointment.timeslot.end_time)}`
+                      : "N/A"}
                   </span>
                 </div>
               </div>
@@ -159,60 +209,20 @@ export default function AppointmentConfirmationPage() {
               <div className="space-y-2">
                 <div>
                   <span className="font-medium">Name:</span>{" "}
-                  {appointment.fullName}
+                  {appointment.user
+                    ? `${appointment.user.first_name} ${appointment.user.last_name}`
+                    : "N/A"}
                 </div>
                 <div className="flex items-center">
                   <Mail className="h-4 w-4 mr-2 text-gray-500" />
-                  <span>{appointment.email}</span>
+                  <span>{appointment.user?.email || "N/A"}</span>
                 </div>
                 <div className="flex items-center">
                   <Phone className="h-4 w-4 mr-2 text-gray-500" />
-                  <span>{appointment.phone}</span>
+                  <span>{appointment.user?.phone_number || "N/A"}</span>
                 </div>
               </div>
             </div>
-
-            {/* Documents */}
-            {appointment.docs && appointment.docs.length > 0 && (
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">
-                  Uploaded Documents
-                </h3>
-                <div className="space-y-2">
-                  {appointment.docs.map(
-                    (
-                      doc: { name: string; type: string; size: number },
-                      index: number
-                    ) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                      >
-                        <div className="flex items-center">
-                          <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                          <span className="text-sm">{doc.name}</span>
-                        </div>
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Notes */}
-            {appointment.notes && (
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">
-                  Additional Notes
-                </h3>
-                <p className="text-gray-600 bg-gray-50 p-3 rounded">
-                  {appointment.notes}
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -226,7 +236,11 @@ export default function AppointmentConfirmationPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="font-medium">{department.name}</div>
+              <div className="font-medium">
+                {appointment.service?.name
+                  ? `${appointment.service.name} Department`
+                  : "Government Department"}
+              </div>
               <div className="text-gray-600">
                 123 Government Street
                 <br />

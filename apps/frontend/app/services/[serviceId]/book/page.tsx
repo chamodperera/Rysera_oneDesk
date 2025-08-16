@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { BookingStepper } from "@/components/booking/BookingStepper";
@@ -18,83 +18,217 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, ArrowRight, FileText, CheckCircle } from "lucide-react";
-import { services, departments, generateTimeslots } from "@/lib/demo-data";
-import { humanServiceDuration } from "@/lib/demo-utils";
-import { appointmentStore } from "@/lib/demo-store";
+import { ArrowLeft, ArrowRight, CheckCircle } from "lucide-react";
+import { DocumentUpload } from "@/components/ui/document-upload";
 import { useIsAuthenticated, useUser } from "@/lib/auth-store";
-import type { Timeslot } from "@/lib/booking-types";
+import { useDepartmentServiceStore } from "@/lib/department-service-store";
+import { useAppointmentBookingStore } from "@/lib/appointment-booking-store";
+import { useToast } from "@/hooks/use-toast";
+
+// Helper function to format time from HH:MM to readable format
+const formatTime = (timeString: string) => {
+  const [hours, minutes] = timeString.split(":");
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
+
+// Helper function to get human readable duration
+const humanServiceDuration = (minutes: number) => {
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""}`;
+    }
+    return `${hours} hour${hours > 1 ? "s" : ""} ${remainingMinutes} min`;
+  }
+  return `${minutes} minutes`;
+};
 
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
-  const serviceId = params.serviceId as string;
+  const { toast } = useToast();
+  const serviceId = parseInt(params.serviceId as string, 10);
   const isAuthenticated = useIsAuthenticated();
   const user = useUser();
 
+  // Stores
+  const { services, fetchServices, allServicesFetched } =
+    useDepartmentServiceStore();
+  const {
+    selectedStartDate,
+    selectedEndDate,
+    selectedTimeslot,
+    formData,
+    timeslots,
+    loading,
+    error,
+    setSelectedStartDate,
+    setSelectedEndDate,
+    setSelectedTimeslot,
+    updateFormData,
+    searchTimeslots,
+    bookAppointment,
+    clearError,
+  } = useAppointmentBookingStore();
+
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedDate, setSelectedDate] = useState<Date>();
-  const [selectedTimeslot, setSelectedTimeslot] = useState<Timeslot>();
-  const [availableTimeslots, setAvailableTimeslots] = useState<Timeslot[]>([]);
+  const lastSearchParamsRef = useRef<string>("");
+  const servicesInitializedRef = useRef(false);
+  const formPrefilledRef = useRef(false);
+  const mountedRef = useRef(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Form data
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    notes: "",
-    documents: [] as File[],
-  });
+  // Track component mount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
-  // Find the service
-  const service = services.find((s) => s.id === serviceId);
-  const department = service
-    ? departments.find((d) => d.id === service.departmentId)
-    : null;
+  // Find the service from store - memoize to prevent unnecessary re-renders
+  const service = useMemo(
+    () => services.find((s) => s.id === serviceId),
+    [services, serviceId]
+  );
+  const department = service?.department;
 
   useEffect(() => {
-    if (!service) {
+    // Fetch services if not already loaded and not currently loading
+    if (
+      mountedRef.current &&
+      !allServicesFetched &&
+      services.length === 0 &&
+      !servicesInitializedRef.current
+    ) {
+      servicesInitializedRef.current = true;
+      fetchServices();
+    }
+  }, [allServicesFetched, services.length, fetchServices]);
+
+  useEffect(() => {
+    if (!service && allServicesFetched && mountedRef.current) {
+      toast({
+        title: "Service not found",
+        description: "The requested service could not be found.",
+        variant: "destructive",
+      });
       router.push("/services");
       return;
     }
-  }, [service, router]);
+  }, [service, allServicesFetched, router, toast]);
 
   useEffect(() => {
     // Redirect to login if not authenticated
-    if (!isAuthenticated) {
-      router.push(
-        `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`
-      );
+    if (!isAuthenticated && mountedRef.current) {
+      const returnUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?returnUrl=${returnUrl}`);
       return;
     }
   }, [isAuthenticated, router]);
 
+  // Create a stable version of form data update to prevent re-renders
+  const updateFormDataStable = useCallback(
+    (data: Partial<typeof formData>) => {
+      updateFormData(data);
+    },
+    [updateFormData]
+  );
+
   useEffect(() => {
     // Pre-fill form data with user information if authenticated
-    if (isAuthenticated && user) {
-      setFormData((prevData) => ({
-        ...prevData,
-        firstName: user.first_name || prevData.firstName,
-        lastName: user.last_name || prevData.lastName,
-        email: user.email || prevData.email,
-        phone: user.phone_number || prevData.phone,
-      }));
+    if (
+      mountedRef.current &&
+      isAuthenticated &&
+      user &&
+      !formPrefilledRef.current
+    ) {
+      formPrefilledRef.current = true;
+      updateFormDataStable({
+        firstName: user.first_name || "",
+        lastName: user.last_name || "",
+        email: user.email || "",
+        phone: user.phone_number || "",
+      });
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, updateFormDataStable]);
+
+  // Memoize the search function to prevent unnecessary re-renders with debounce
+  const searchTimeslotsStable = useCallback(
+    (params: { fromDate: string; toDate: string; serviceIds: number[] }) => {
+      const searchParams = `${params.fromDate}-${params.toDate}-${params.serviceIds.join(",")}`;
+
+      // Prevent duplicate requests
+      if (lastSearchParamsRef.current === searchParams) {
+        return;
+      }
+
+      // Clear any existing timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      lastSearchParamsRef.current = searchParams;
+
+      // Add a small delay to prevent rapid successive calls
+      searchTimeoutRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          searchTimeslots({
+            fromDate: params.fromDate,
+            toDate: params.toDate,
+            serviceIds: params.serviceIds,
+            availableOnly: true,
+          });
+        }
+      }, 100);
+    },
+    [searchTimeslots]
+  );
 
   useEffect(() => {
-    if (selectedDate) {
-      const dateStr = selectedDate.toISOString().split("T")[0];
-      const filteredTimeslots = generateTimeslots().filter(
-        (slot) => slot.date === dateStr
-      );
-      setAvailableTimeslots(filteredTimeslots);
-    }
-  }, [selectedDate]);
+    // Fetch available timeslots when both dates are selected
+    if (selectedStartDate && selectedEndDate && service && mountedRef.current) {
+      const fromDateStr = selectedStartDate.toISOString().split("T")[0];
+      const toDateStr = selectedEndDate.toISOString().split("T")[0];
 
-  if (!service || !department) {
+      // Ensure fromDate is not after toDate
+      if (fromDateStr <= toDateStr) {
+        searchTimeslotsStable({
+          fromDate: fromDateStr,
+          toDate: toDateStr,
+          serviceIds: [service.id],
+        });
+      }
+    }
+  }, [selectedStartDate, selectedEndDate, service, searchTimeslotsStable]);
+
+  // Clear error when component unmounts
+  useEffect(() => {
+    return () => {
+      clearError();
+      // Clear any pending search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [clearError]);
+
+  if (!service && allServicesFetched) {
     return null;
+  }
+
+  if (!service) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        </div>
+      </AppLayout>
+    );
   }
 
   const handleNext = () => {
@@ -109,41 +243,51 @@ export default function BookingPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Check if user is authenticated before allowing booking
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       // Redirect to login with return URL
-      router.push(
-        `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`
-      );
+      const returnUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?returnUrl=${returnUrl}`);
       return;
     }
 
-    if (!selectedDate || !selectedTimeslot) return;
+    if (!selectedStartDate || !selectedEndDate || !selectedTimeslot) {
+      toast({
+        title: "Booking Error",
+        description: "Please select a date range and timeslot.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const bookingRef = appointmentStore.createAppointment({
-      serviceId: service.id,
-      timeslotId: selectedTimeslot.id,
-      fullName: `${formData.firstName} ${formData.lastName}`,
-      email: formData.email,
-      phone: formData.phone,
-      notes: formData.notes,
-      docs: formData.documents.map((f) => ({
-        name: f.name,
-        type: f.type,
-        size: f.size,
-      })),
-      status: "booked",
-      userId: user?.id ? user.id.toString() : undefined,
-    });
+    try {
+      const appointment = await bookAppointment(
+        service.id,
+        selectedTimeslot.id,
+        user.id
+      );
 
-    // Find the appointment by booking reference to get the ID
-    const appointment = appointmentStore
-      .getAppointments()
-      .find((a) => a.bookingRef === bookingRef);
-
-    if (appointment) {
-      router.push(`/appointments/${appointment.id}`);
+      if (appointment) {
+        toast({
+          title: "Booking Successful!",
+          description: `Your appointment has been booked. Reference: ${appointment.booking_reference}`,
+        });
+        router.push(`/appointments/${appointment.id}`);
+      } else {
+        toast({
+          title: "Booking Failed",
+          description: error || "Failed to book appointment. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Booking error:", error);
+      toast({
+        title: "Booking Failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -157,7 +301,7 @@ export default function BookingPage() {
           formData.phone
         );
       case 2:
-        return selectedDate;
+        return selectedStartDate && selectedEndDate;
       case 3:
         return selectedTimeslot;
       case 4:
@@ -190,7 +334,7 @@ export default function BookingPage() {
                   id="firstName"
                   value={formData.firstName}
                   onChange={(e) =>
-                    setFormData({ ...formData, firstName: e.target.value })
+                    updateFormData({ firstName: e.target.value })
                   }
                   placeholder="Enter your first name"
                 />
@@ -200,9 +344,7 @@ export default function BookingPage() {
                 <Input
                   id="lastName"
                   value={formData.lastName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, lastName: e.target.value })
-                  }
+                  onChange={(e) => updateFormData({ lastName: e.target.value })}
                   placeholder="Enter your last name"
                 />
               </div>
@@ -214,9 +356,7 @@ export default function BookingPage() {
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
+                onChange={(e) => updateFormData({ email: e.target.value })}
                 placeholder="Enter your email address"
               />
             </div>
@@ -227,9 +367,7 @@ export default function BookingPage() {
                 id="phone"
                 type="tel"
                 value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
+                onChange={(e) => updateFormData({ phone: e.target.value })}
                 placeholder="Enter your phone number"
               />
             </div>
@@ -239,9 +377,7 @@ export default function BookingPage() {
               <Textarea
                 id="notes"
                 value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
+                onChange={(e) => updateFormData({ notes: e.target.value })}
                 placeholder="Any additional information you'd like to share"
                 rows={3}
               />
@@ -254,26 +390,52 @@ export default function BookingPage() {
           <div className="space-y-6">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Select Date
+                Select Date Range
               </h2>
               <p className="text-gray-600">
-                Choose your preferred appointment date
+                Choose your preferred appointment date range by selecting start
+                and end dates
               </p>
             </div>
 
             <div className="flex justify-center">
               <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
+                mode="range"
+                selected={{
+                  from: selectedStartDate || undefined,
+                  to: selectedEndDate || undefined,
+                }}
+                onSelect={(range) => {
+                  if (range?.from) {
+                    setSelectedStartDate(range.from);
+                  } else {
+                    setSelectedStartDate(null);
+                  }
+
+                  if (range?.to) {
+                    setSelectedEndDate(range.to);
+                  } else {
+                    setSelectedEndDate(null);
+                  }
+                }}
                 disabled={(date) =>
                   date < new Date() ||
                   date.getDay() === 0 ||
                   date.getDay() === 6
                 }
+                numberOfMonths={2}
                 className="rounded-md border"
               />
             </div>
+
+            {selectedStartDate && selectedEndDate && (
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-blue-800">
+                  Selected range: {selectedStartDate.toLocaleDateString()} to{" "}
+                  {selectedEndDate.toLocaleDateString()}
+                </p>
+              </div>
+            )}
           </div>
         );
 
@@ -285,15 +447,17 @@ export default function BookingPage() {
                 Select Time
               </h2>
               <p className="text-gray-600">
-                Choose your preferred time slot for{" "}
-                {selectedDate?.toLocaleDateString()}
+                Choose your preferred time slot for the date range:{" "}
+                {selectedStartDate?.toLocaleDateString()} to{" "}
+                {selectedEndDate?.toLocaleDateString()}
               </p>
             </div>
 
             <TimeslotGrid
-              timeslots={availableTimeslots}
+              timeslots={timeslots}
               selectedTimeslotId={selectedTimeslot?.id}
               onTimeslotSelect={setSelectedTimeslot}
+              loading={loading}
             />
           </div>
         );
@@ -314,55 +478,42 @@ export default function BookingPage() {
               <CardHeader>
                 <CardTitle className="text-lg">Required Documents</CardTitle>
                 <CardDescription>
-                  Please ensure all documents are clear and legible
+                  Please upload any supporting documents for your appointment
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {service.requiredDocuments.map((doc, index) => (
-                  <div key={index} className="flex items-center space-x-2">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
                     <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                    <span className="text-sm">{doc}</span>
+                    <span className="text-sm">
+                      National Identity Card (NIC)
+                    </span>
                   </div>
-                ))}
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    <span className="text-sm">
+                      Supporting documents related to the service
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                    <span className="text-sm text-gray-500">
+                      Any additional relevant documents (optional)
+                    </span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">
-                Drag and drop files here, or click to browse
-              </p>
-              <p className="text-sm text-gray-500">
-                Supports PDF, JPG, PNG files up to 10MB
-              </p>
-              <Input
-                type="file"
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png"
-                className="mt-4"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  setFormData({ ...formData, documents: files });
-                }}
-              />
-            </div>
-
-            {formData.documents.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Uploaded Files:</h4>
-                {formData.documents.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                  >
-                    <span className="text-sm">{file.name}</span>
-                    <span className="text-xs text-gray-500">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <DocumentUpload
+              documents={formData.documents}
+              onDocumentsChange={(files: File[]) =>
+                updateFormData({ documents: files })
+              }
+              maxFiles={10}
+              maxSize={10}
+              acceptedTypes={[".pdf", ".jpg", ".jpeg", ".png"]}
+            />
           </div>
         );
 
@@ -387,7 +538,7 @@ export default function BookingPage() {
                   <h4 className="font-medium text-gray-900">Service</h4>
                   <p className="text-gray-600">{service.name}</p>
                   <Badge variant="secondary" className="mt-1">
-                    {department.name}
+                    {department?.name}
                   </Badge>
                 </div>
 
@@ -405,11 +556,15 @@ export default function BookingPage() {
                 <div>
                   <h4 className="font-medium text-gray-900">Date & Time</h4>
                   <p className="text-gray-600">
-                    {selectedDate?.toLocaleDateString()} at{" "}
-                    {selectedTimeslot?.start} - {selectedTimeslot?.end}
+                    {selectedStartDate?.toLocaleDateString()} to{" "}
+                    {selectedEndDate?.toLocaleDateString()} at{" "}
+                    {selectedTimeslot &&
+                      formatTime(selectedTimeslot.start_time)}{" "}
+                    -{" "}
+                    {selectedTimeslot && formatTime(selectedTimeslot.end_time)}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Duration: {humanServiceDuration(service.durationMinutes)}
+                    Duration: {humanServiceDuration(service.duration_minutes)}
                   </p>
                 </div>
 
@@ -457,9 +612,11 @@ export default function BookingPage() {
               Book Appointment
             </h1>
             <p className="text-lg text-gray-600 mb-4">{service.name}</p>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              {department.name}
-            </Badge>
+            {department && (
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                {department.name}
+              </Badge>
+            )}
           </div>
         </div>
 
