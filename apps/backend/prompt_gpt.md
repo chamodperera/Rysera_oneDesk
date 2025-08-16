@@ -88,8 +88,7 @@ Deliverables:
 
 ---
 
-### **PHASE 1 — Project Setup**
-
+### **PHASE 1 — Project Setup**(Done)
 **Prompt 1:**
 
 > Create a Node.js + Express backend project with ES modules and TypeScript support.
@@ -106,7 +105,7 @@ Deliverables:
 
 ---
 
-### **PHASE 2 — Database & Migrations**
+### **PHASE 2 — Database & Migrations**(Done)
 
 **Prompt 2:**
 If database.md file available, consider the database is manually created and check whether you can retrieve data from there and write data to the database according to the schema mentioned in the database.md.
@@ -122,7 +121,7 @@ If database.md file available, consider the database is manually created and che
 
 ---
 
-### **PHASE 3 — Authentication & User Management**
+### **PHASE 3 — Authentication & User Management**(Done)
 
 **Prompt 3:**
 
@@ -139,7 +138,7 @@ If database.md file available, consider the database is manually created and che
 
 We’ll handle them in dependency order:
 
-#### **Prompt 4.1 — Departments Module**
+#### **Prompt 4.1 — Departments Module**(Done)
 
 > Create CRUD endpoints for `departments`.
 >
@@ -147,7 +146,7 @@ We’ll handle them in dependency order:
 > * Only Admin & Superadmin can create/update/delete.
 > * Public can GET.
 
-#### **Prompt 4.2 — Services Module**
+#### **Prompt 4.2 — Services Module**(Done)
 
 > Create CRUD endpoints for `services`.
 >
@@ -155,7 +154,7 @@ We’ll handle them in dependency order:
 > * Pagination, filtering by name, sorting.
 > * Only officer, Admin & Superadmin can modify. Public can GET.
 
-#### **Prompt 4.3 — Officers Module**
+#### **Prompt 4.3 — Officers Module**(Done)
 
 > CRUD endpoints for `officers`.
 >
@@ -163,7 +162,7 @@ We’ll handle them in dependency order:
 > * Only Admin & Superadmin can modify.
 > * GET for internal system only (authenticated).
 
-#### **Prompt 4.4 — Timeslots Module**
+#### **Prompt 4.4 — Timeslots Module**(Done)
 
 > CRUD endpoints for `timeslots`.
 >
@@ -171,7 +170,7 @@ We’ll handle them in dependency order:
 > * Real-time availability lock on booking.
 > * officers, Admin & Superadmin manage; public read-only.
 
-#### **Prompt 4.5 — Appointments Module**
+#### **Prompt 4.5 — Appointments Module**(Done)
 
 > Implement appointment booking:
 >
@@ -190,6 +189,7 @@ We’ll handle them in dependency order:
 > * ~~Upload to Supabase storage.~~
 > * ~~Max size 5MB; restrict file types (PDF, PNG, JPG).~~
 > * ~~Citizens can upload only for their appointments.~~
+>officers should be able to check the documents associated with an appointment
 
 #### **Prompt 4.7 — Notifications Module** (SKIPPED)
 

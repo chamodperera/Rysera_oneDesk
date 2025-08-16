@@ -9,6 +9,7 @@ import officerRoutes from './officers';
 import timeslotRoutes from './timeslots';
 import appointmentRoutes from './appointments';
 import feedbackRoutes from './feedbackRoutes';
+import documentRoutes from './documentRoutes';
 
 const router: RouterType = Router();
 
@@ -41,9 +42,11 @@ router.use('/appointments', appointmentRoutes);
 // Feedback routes (Citizens submit, Officers/Admins view, Public rating stats)
 router.use('/feedbacks', feedbackRoutes);
 
+// Document routes (Test upload functionality)
+router.use('/documents', documentRoutes);
+
 // API routes will be added here in future phases
 // Example structure:
-// router.use('/documents', documentRoutes);
 // router.use('/notifications', notificationRoutes);
 
 export default router;
