@@ -7,6 +7,10 @@ import { UserRepository } from '../models/UserRepository';
 import { AuthenticatedRequest } from '../middlewares';
 import { CreateAppointmentData, AppointmentStatus } from '../types/database';
 import QRCode from 'qrcode';
+import { SchedulerService } from '../services/SchedulerService.js';
+import { ReminderService } from '../services/ReminderService.js';
+import { NotificationService } from '../services/NotificationService.js';
+import dayjs from 'dayjs';
 
 export class AppointmentController {
   private appointmentRepository: AppointmentRepository;
@@ -365,8 +369,38 @@ export class AppointmentController {
         // Get appointment with details (now including the QR code)
         const appointmentWithDetails = await this.appointmentRepository.findWithDetails(appointment.id);
 
-        // TODO: Send email confirmation (will be implemented in notifications module)
-        console.log(`📧 Would send appointment confirmation email to ${user.email}`);
+        // Send email confirmation
+        try {
+          console.log(`📧 Sending appointment confirmation email to ${user.email}`);
+          
+          // Prepare appointment details for email
+          const emailDetails = {
+            appointmentId: appointment.id,
+            bookingReference: bookingReference,
+            serviceName: service.name,
+            departmentName: 'Government Services', // Simplified for now
+            dateTime: this.formatAppointmentDateTime(appointmentWithDetails!.timeslot),
+            officerName: assignedOfficerId && appointmentWithDetails!.officer?.user 
+              ? `${appointmentWithDetails!.officer.user.first_name} ${appointmentWithDetails!.officer.user.last_name}`
+              : 'To be assigned'
+          };
+
+          const emailSent = await NotificationService.sendAppointmentConfirmation(
+            appointmentUserId,
+            user.email,
+            `${user.first_name} ${user.last_name}`,
+            emailDetails
+          );
+
+          if (emailSent) {
+            console.log('✅ Appointment confirmation email sent successfully');
+          } else {
+            console.log('⚠️ Failed to send appointment confirmation email');
+          }
+        } catch (emailError) {
+          console.error('📧 Email sending error:', emailError);
+          // Don't fail the appointment creation if email fails
+        }
 
         res.status(201).json({
           success: true,
@@ -640,4 +674,117 @@ export class AppointmentController {
       });
     }
   };
+
+  // GET /api/appointments/scheduler/status - Get scheduler status (Admin only)
+  getSchedulerStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const status = SchedulerService.getStatus();
+      const debugInfo = SchedulerService.getDebugInfo();
+
+      res.json({
+        success: true,
+        data: {
+          status,
+          debugInfo
+        }
+      });
+    } catch (error) {
+      console.error('Error getting scheduler status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  };
+
+  // POST /api/appointments/scheduler/trigger - Manually trigger reminder job (Admin only)
+  triggerSchedulerManually = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { reason } = req.body;
+
+      const stats = await SchedulerService.triggerManualExecution(
+        reason || `Manual trigger by admin ${req.user?.email}`
+      );
+
+      res.json({
+        success: true,
+        message: 'Reminder job executed successfully',
+        data: {
+          stats
+        }
+      });
+    } catch (error) {
+      console.error('Error triggering manual reminder job:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to execute reminder job',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  // GET /api/appointments/reminders/stats - Get reminder statistics (Admin/Officer)
+  getReminderStatistics = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { date } = req.query;
+
+      const stats = await ReminderService.getReminderStatistics(date as string);
+
+      res.json({
+        success: true,
+        data: {
+          stats,
+          date: date || 'tomorrow'
+        }
+      });
+    } catch (error) {
+      console.error('Error getting reminder statistics:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  };
+
+  // POST /api/appointments/scheduler/restart - Restart the scheduler (Admin only)
+  restartScheduler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      SchedulerService.restart();
+
+      const status = SchedulerService.getStatus();
+
+      res.json({
+        success: true,
+        message: 'Scheduler restarted successfully',
+        data: {
+          status
+        }
+      });
+    } catch (error) {
+      console.error('Error restarting scheduler:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to restart scheduler',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
+   * Format appointment date and time for display
+   */
+  private formatAppointmentDateTime(timeslot: any): string {
+    if (!timeslot) return 'Date/Time TBD';
+
+    try {
+      const date = dayjs(timeslot.slot_date);
+      const startTime = timeslot.start_time;
+      const endTime = timeslot.end_time;
+
+      return `${date.format('dddd, MMMM D, YYYY')} at ${startTime} - ${endTime}`;
+    } catch (error) {
+      console.error('Error formatting appointment date/time:', error);
+      return `${timeslot.slot_date} at ${timeslot.start_time} - ${timeslot.end_time}`;
+    }
+  }
 }

@@ -29,4 +29,12 @@ router.delete('/:id', authenticateToken, appointmentController.cancelAppointment
 router.put('/:id/status', authenticateToken, requireRole(UserRole.OFFICER, UserRole.ADMIN), appointmentController.updateAppointmentStatus);
 router.put('/:id/officer', authenticateToken, requireRole(UserRole.OFFICER, UserRole.ADMIN), appointmentController.assignOfficer);
 
+// Scheduler routes - Admin only
+router.get('/scheduler/status', authenticateToken, requireRole(UserRole.ADMIN), appointmentController.getSchedulerStatus);
+router.post('/scheduler/trigger', authenticateToken, requireRole(UserRole.ADMIN), appointmentController.triggerSchedulerManually);
+router.post('/scheduler/restart', authenticateToken, requireRole(UserRole.ADMIN), appointmentController.restartScheduler);
+
+// Reminder statistics - Officers and Admins
+router.get('/reminders/stats', authenticateToken, requireRole(UserRole.OFFICER, UserRole.ADMIN), appointmentController.getReminderStatistics);
+
 export default router;

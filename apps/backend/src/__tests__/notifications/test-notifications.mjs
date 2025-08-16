@@ -1,7 +1,8 @@
-// Test script for notification functionality
-import { NotificationService } from '../../../dist/services/NotificationService.cjs';
-import { notificationRepository } from '../../../dist/models/index.cjs';
-import { NotificationType, NotificationStatus } from '../../../dist/types/database.cjs';
+// Test script for notification functionality  
+// Note: Run this after building the project with 'npm run build'
+import { NotificationService } from '../../services/NotificationService.js';
+import { notificationRepository } from '../../models/index.js';
+import { NotificationType, NotificationStatus } from '../../types/database.js';
 
 console.log('🧪 Testing Notification Module...');
 
@@ -88,4 +89,3 @@ testNotificationModule().then(() => {
 }).catch(error => {
   console.error('❌ Test error:', error);
 });
-V
