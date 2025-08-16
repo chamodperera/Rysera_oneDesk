@@ -23,35 +23,10 @@ import {
   QrCode,
   Upload,
   XCircle,
-  MessageSquare,
   Calendar,
 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
-import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
-import { useAppointments } from "@/lib/demo-store";
-import {
-  getServiceById,
-  getTimeslotById,
-  formatDateShort,
-  formatTime,
-} from "@/lib/demo-utils";
-import { departments } from "@/lib/demo-data";
-
-type Status = "booked" | "in-progress" | "completed" | "cancelled";
-
-interface Appointment {
-  id: string;
-  bookingRef: string;
-  serviceId: string;
-  timeslotId: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  notes?: string;
-  docs: { name: string; type: string; size: number }[];
-  status: Status;
-  createdAt: string;
-}
+import { Appointment } from "@/lib/api";
 
 interface AppointmentsTableProps {
   appointments: Appointment[];
@@ -60,7 +35,6 @@ interface AppointmentsTableProps {
   onUploadDocs: (appointment: Appointment) => void;
   onCancel: (appointment: Appointment) => void;
 }
-
 export function AppointmentsTable({
   appointments,
   onView,
@@ -70,20 +44,16 @@ export function AppointmentsTable({
 }: AppointmentsTableProps) {
   const [sortBy, setSortBy] = useState<"date" | "service">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [feedbackAppointment, setFeedbackAppointment] =
-    useState<Appointment | null>(null);
-
-  const { getFeedbackByAppointment } = useAppointments();
 
   const sortedAppointments = [...appointments].sort((a, b) => {
     if (sortBy === "date") {
-      const dateA = getTimeslotById(a.timeslotId)?.date || "";
-      const dateB = getTimeslotById(b.timeslotId)?.date || "";
+      const dateA = a.timeslot?.slot_date || "";
+      const dateB = b.timeslot?.slot_date || "";
       const comparison = dateA.localeCompare(dateB);
       return sortOrder === "asc" ? comparison : -comparison;
     } else {
-      const serviceA = getServiceById(a.serviceId)?.name || "";
-      const serviceB = getServiceById(b.serviceId)?.name || "";
+      const serviceA = a.service?.name || "";
+      const serviceB = b.service?.name || "";
       const comparison = serviceA.localeCompare(serviceB);
       return sortOrder === "asc" ? comparison : -comparison;
     }
@@ -99,67 +69,47 @@ export function AppointmentsTable({
   };
 
   const getActionButtons = (appointment: Appointment) => {
-    const timeslot = getTimeslotById(appointment.timeslotId);
     const canCancel =
-      appointment.status === "booked" &&
-      timeslot &&
-      new Date(timeslot.date) > new Date();
-    const canFeedback = appointment.status === "completed";
-    const existingFeedback = getFeedbackByAppointment(appointment.id);
+      appointment.status === "confirmed" &&
+      appointment.timeslot &&
+      new Date(appointment.timeslot.slot_date) > new Date();
 
     return (
       <div className="flex items-center gap-2">
-        {/* For completed appointments, show only feedback button */}
-        {canFeedback ? (
-          <Button
-            variant={existingFeedback ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setFeedbackAppointment(appointment)}
-            className={
-              existingFeedback
-                ? "bg-green-50 border-green-200 text-green-800 hover:bg-green-100 hover:border-green-300"
-                : "bg-yellow-50 border-yellow-200 text-yellow-800 hover:bg-yellow-100 hover:border-yellow-300"
-            }
-          >
-            <MessageSquare className="mr-2 h-4 w-4" />
-            {existingFeedback ? "View Feedback" : "Leave Feedback"}
-          </Button>
-        ) : (
-          /* For non-completed appointments, show dropdown with all actions */
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-primary"
+        {/* Actions dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onView(appointment)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onShowQR(appointment)}>
+              <QrCode className="mr-2 h-4 w-4" />
+              Show QR Code
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onUploadDocs(appointment)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Documents
+            </DropdownMenuItem>
+            {canCancel && (
+              <DropdownMenuItem
+                onClick={() => onCancel(appointment)}
+                className="text-red-600 focus:text-red-600"
               >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onView(appointment)}>
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel Appointment
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onShowQR(appointment)}>
-                <QrCode className="mr-2 h-4 w-4" />
-                Show QR Code
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onUploadDocs(appointment)}>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Documents
-              </DropdownMenuItem>
-              {canCancel && (
-                <DropdownMenuItem
-                  onClick={() => onCancel(appointment)}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Cancel Appointment
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   };
@@ -210,18 +160,19 @@ export function AppointmentsTable({
         </TableHeader>
         <TableBody>
           {sortedAppointments.map((appointment) => {
-            const service = getServiceById(appointment.serviceId);
-            const timeslot = getTimeslotById(appointment.timeslotId);
-            const department = service
-              ? departments.find((d) => d.id === service.departmentId)
-              : null;
+            const service = appointment.service;
+            const timeslot = appointment.timeslot;
 
-            if (!service || !timeslot || !department) return null;
+            if (!service || !timeslot) return null;
+
+            const formatDate = (dateStr: string) => {
+              return new Date(dateStr).toLocaleDateString();
+            };
 
             return (
               <TableRow key={appointment.id}>
                 <TableCell className="font-mono text-sm">
-                  {appointment.bookingRef}
+                  {appointment.booking_reference}
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">
@@ -230,13 +181,13 @@ export function AppointmentsTable({
                       variant="secondary"
                       className="text-xs bg-primary/10 text-primary"
                     >
-                      {department.name}
+                      Department {service.department_id}
                     </Badge>
                   </div>
                 </TableCell>
-                <TableCell>{formatDateShort(timeslot.date)}</TableCell>
+                <TableCell>{formatDate(timeslot.slot_date)}</TableCell>
                 <TableCell>
-                  {formatTime(timeslot.start)} - {formatTime(timeslot.end)}
+                  {timeslot.start_time} - {timeslot.end_time}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={appointment.status} />
@@ -247,21 +198,6 @@ export function AppointmentsTable({
           })}
         </TableBody>
       </Table>
-
-      {/* Feedback Dialog */}
-      {feedbackAppointment && (
-        <FeedbackDialog
-          appointment={feedbackAppointment}
-          service={getServiceById(feedbackAppointment.serviceId)!}
-          timeslot={getTimeslotById(feedbackAppointment.timeslotId)!}
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) {
-              setFeedbackAppointment(null);
-            }
-          }}
-        />
-      )}
     </div>
   );
 }

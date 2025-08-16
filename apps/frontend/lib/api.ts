@@ -107,7 +107,7 @@ export interface Appointment {
   };
   timeslot?: {
     id: number;
-    date: string;
+    slot_date: string;
     start_time: string;
     end_time: string;
   };
@@ -115,6 +115,12 @@ export interface Appointment {
     id: number;
     user_id: number;
     position: string;
+    user?: {
+      id: number;
+      first_name: string;
+      last_name: string;
+      email: string;
+    };
   };
 }
 
@@ -516,12 +522,8 @@ export const appointmentApi = {
     return ApiClient.get<{ data: AppointmentResponse }>("/appointments");
   },
 
-  async getMy(): Promise<
-    ApiResponse<{ data: { appointments: Appointment[] } }>
-  > {
-    return ApiClient.get<{ data: { appointments: Appointment[] } }>(
-      "/appointments/my"
-    );
+  async getMy(): Promise<ApiResponse<{ appointments: Appointment[] }>> {
+    return ApiClient.get<{ appointments: Appointment[] }>("/appointments/my");
   },
 
   async getById(

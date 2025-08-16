@@ -18,25 +18,11 @@ import { QRCodeDrawer } from "@/components/appointments/QRCodeDrawer";
 import { DocUploadDrawer } from "@/components/appointments/DocUploadDrawer";
 import { CancelConfirmDialog } from "@/components/appointments/CancelConfirmDialog";
 import { CalendarDays, Plus } from "lucide-react";
-import { useAppointments } from "@/lib/demo-store";
-import { getServiceById, getTimeslotById } from "@/lib/demo-utils";
+import { useAppointmentBookingStore } from "@/lib/appointment-booking-store";
+import { useIsAuthenticated, useUser } from "@/lib/auth-store";
 import { useToast } from "@/hooks/use-toast";
-
-type Status = "booked" | "in-progress" | "completed" | "cancelled";
-
-interface Appointment {
-  id: string;
-  bookingRef: string;
-  serviceId: string;
-  timeslotId: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  notes?: string;
-  docs: { name: string; type: string; size: number }[];
-  status: Status;
-  createdAt: string;
-}
+import { useRouter } from "next/navigation";
+import { Appointment } from "@/lib/api";
 
 export default function MyAppointmentsPage() {
   const [activeTab, setActiveTab] = useState("upcoming");
@@ -54,31 +40,67 @@ export default function MyAppointmentsPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
 
-  const { appointments, cancelAppointment, updateAppointmentDocs } =
-    useAppointments();
+  // Authentication and store
+  const isAuthenticated = useIsAuthenticated();
+  const user = useUser();
+  const router = useRouter();
   const { toast } = useToast();
+
+  const {
+    myAppointments,
+    loading,
+    error,
+    fetchMyAppointments,
+    cancelAppointment,
+  } = useAppointmentBookingStore();
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (isMounted && !isAuthenticated) {
+      router.push(
+        "/login?returnUrl=" + encodeURIComponent("/dashboard/appointments")
+      );
+    }
+  }, [isAuthenticated, isMounted, router]);
+
+  // Fetch appointments when component mounts and user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchMyAppointments();
+    }
+  }, [isAuthenticated, user, fetchMyAppointments]);
+
   // Filter appointments by status and search/department filters
   const filteredAppointments = useMemo(() => {
-    let filtered = appointments;
+    let filtered = myAppointments;
 
     // Filter by tab (status)
     if (activeTab !== "all") {
       if (activeTab === "upcoming") {
         filtered = filtered.filter((apt) => {
-          const timeslot = getTimeslotById(apt.timeslotId);
-          return (
-            apt.status === "booked" &&
-            timeslot &&
-            new Date(timeslot.date) >= new Date()
-          );
+          // Include appointments that are in the future and not completed/cancelled
+          const isFuture =
+            apt.timeslot && new Date(apt.timeslot.slot_date) >= new Date();
+          const isUpcomingStatus = [
+            "pending",
+            "confirmed",
+            "in_progress",
+          ].includes(apt.status);
+          return isFuture && isUpcomingStatus;
         });
       } else {
-        filtered = filtered.filter((apt) => apt.status === activeTab);
+        // Map frontend status names to backend status names
+        const statusMap: Record<string, string> = {
+          "in-progress": "in_progress",
+          cancelled: "cancelled",
+          completed: "completed",
+        };
+        const backendStatus = statusMap[activeTab] || activeTab;
+        filtered = filtered.filter((apt) => apt.status === backendStatus);
       }
     }
 
@@ -86,10 +108,9 @@ export default function MyAppointmentsPage() {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter((apt) => {
-        const service = getServiceById(apt.serviceId);
         return (
-          apt.bookingRef.toLowerCase().includes(searchLower) ||
-          service?.name.toLowerCase().includes(searchLower)
+          apt.booking_reference.toLowerCase().includes(searchLower) ||
+          apt.service?.name.toLowerCase().includes(searchLower)
         );
       });
     }
@@ -97,13 +118,12 @@ export default function MyAppointmentsPage() {
     // Filter by department
     if (filters.department) {
       filtered = filtered.filter((apt) => {
-        const service = getServiceById(apt.serviceId);
-        return service?.departmentId === filters.department;
+        return apt.service?.department_id?.toString() === filters.department;
       });
     }
 
     return filtered;
-  }, [appointments, activeTab, filters]);
+  }, [myAppointments, activeTab, filters]);
 
   const handleView = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
@@ -125,21 +145,34 @@ export default function MyAppointmentsPage() {
     setShowCancel(true);
   };
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
     if (selectedAppointment) {
-      cancelAppointment(selectedAppointment.id);
-      toast({
-        title: "Appointment cancelled",
-        description: `${selectedAppointment.bookingRef} has been cancelled (demo)`,
-      });
+      try {
+        await cancelAppointment(selectedAppointment.id);
+        toast({
+          title: "Appointment cancelled",
+          description: `Booking reference ${selectedAppointment.booking_reference} has been cancelled`,
+        });
+        setShowCancel(false);
+        setSelectedAppointment(null);
+      } catch (err) {
+        console.error("Failed to cancel appointment:", err);
+        toast({
+          title: "Error",
+          description: "Failed to cancel appointment. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
-  const handleDocsUpdate = (
-    docs: { name: string; type: string; size: number }[]
-  ) => {
+  const handleDocsUpdate = () => {
+    // TODO: Implement document upload for real appointments
     if (selectedAppointment) {
-      updateAppointmentDocs(selectedAppointment.id, docs);
+      toast({
+        title: "Feature coming soon",
+        description: "Document upload will be available soon",
+      });
     }
   };
 
@@ -159,23 +192,27 @@ export default function MyAppointmentsPage() {
     }
 
     return {
-      all: appointments.length,
-      upcoming: appointments.filter((apt) => {
-        const timeslot = getTimeslotById(apt.timeslotId);
-        return (
-          apt.status === "booked" &&
-          timeslot &&
-          new Date(timeslot.date) >= new Date()
-        );
+      all: myAppointments.length,
+      upcoming: myAppointments.filter((apt) => {
+        // Include appointments that are in the future and not completed/cancelled
+        const isFuture =
+          apt.timeslot && new Date(apt.timeslot.slot_date) >= new Date();
+        const isUpcomingStatus = [
+          "pending",
+          "confirmed",
+          "in_progress",
+        ].includes(apt.status);
+        return isFuture && isUpcomingStatus;
       }).length,
-      "in-progress": appointments.filter((apt) => apt.status === "in-progress")
+      "in-progress": myAppointments.filter(
+        (apt) => apt.status === "in_progress"
+      ).length,
+      completed: myAppointments.filter((apt) => apt.status === "completed")
         .length,
-      completed: appointments.filter((apt) => apt.status === "completed")
-        .length,
-      cancelled: appointments.filter((apt) => apt.status === "cancelled")
+      cancelled: myAppointments.filter((apt) => apt.status === "cancelled")
         .length,
     };
-  }, [appointments, isMounted]);
+  }, [myAppointments, isMounted]);
 
   return (
     <AppLayout>
@@ -201,88 +238,120 @@ export default function MyAppointmentsPage() {
           </Button>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-2 text-muted-foreground">
+              Loading appointments...
+            </span>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <Card className="mb-6">
+            <CardContent className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <p className="text-destructive mb-2">
+                  Failed to load appointments
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchMyAppointments()}
+                  className="text-sm"
+                >
+                  Try Again
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Status Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-5 max-w-2xl">
-            <TabsTrigger
-              value="all"
-              className="focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              All ({appointmentCounts.all})
-            </TabsTrigger>
-            <TabsTrigger
-              value="upcoming"
-              className="focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Upcoming ({appointmentCounts.upcoming})
-            </TabsTrigger>
-            <TabsTrigger
-              value="in-progress"
-              className="focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              In Progress ({appointmentCounts["in-progress"]})
-            </TabsTrigger>
-            <TabsTrigger
-              value="completed"
-              className="focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Completed ({appointmentCounts.completed})
-            </TabsTrigger>
-            <TabsTrigger
-              value="cancelled"
-              className="focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Cancelled ({appointmentCounts.cancelled})
-            </TabsTrigger>
-          </TabsList>
+        {!loading && !error && (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <TabsList className="grid w-full grid-cols-5 max-w-2xl">
+              <TabsTrigger
+                value="all"
+                className="focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                All ({appointmentCounts.all})
+              </TabsTrigger>
+              <TabsTrigger
+                value="upcoming"
+                className="focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Upcoming ({appointmentCounts.upcoming})
+              </TabsTrigger>
+              <TabsTrigger
+                value="in-progress"
+                className="focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                In Progress ({appointmentCounts["in-progress"]})
+              </TabsTrigger>
+              <TabsTrigger
+                value="completed"
+                className="focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Completed ({appointmentCounts.completed})
+              </TabsTrigger>
+              <TabsTrigger
+                value="cancelled"
+                className="focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Cancelled ({appointmentCounts.cancelled})
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Filters */}
-          <div className="mt-6">
-            <FiltersBar
-              filters={filters}
-              onFiltersChange={setFilters}
-              onClearFilters={clearFilters}
-            />
-          </div>
+            {/* Filters */}
+            <div className="mt-6">
+              <FiltersBar
+                filters={filters}
+                onFiltersChange={setFilters}
+                onClearFilters={clearFilters}
+              />
+            </div>
 
-          {/* Content for each tab */}
-          <div className="mt-6">
-            <TabsContent value={activeTab} className="mt-0">
-              {filteredAppointments.length > 0 ? (
-                <AppointmentsTable
-                  appointments={filteredAppointments}
-                  onView={handleView}
-                  onShowQR={handleShowQR}
-                  onUploadDocs={handleUploadDocs}
-                  onCancel={handleCancel}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
-                    <CardTitle className="text-xl mb-2">
-                      No appointments found
-                    </CardTitle>
-                    <CardDescription className="text-center mb-6 max-w-sm">
-                      {activeTab === "all"
-                        ? "You haven't booked any appointments yet. Start by booking your first appointment."
-                        : `No ${activeTab === "upcoming" ? "upcoming" : activeTab} appointments found. Try adjusting your filters.`}
-                    </CardDescription>
-                    <Button
-                      asChild
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      <Link href="/services">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Book New Appointment
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-          </div>
-        </Tabs>
+            {/* Content for each tab */}
+            <div className="mt-6">
+              <TabsContent value={activeTab} className="mt-0">
+                {filteredAppointments.length > 0 ? (
+                  <AppointmentsTable
+                    appointments={filteredAppointments}
+                    onView={handleView}
+                    onShowQR={handleShowQR}
+                    onUploadDocs={handleUploadDocs}
+                    onCancel={handleCancel}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
+                      <CardTitle className="text-xl mb-2">
+                        No appointments found
+                      </CardTitle>
+                      <CardDescription className="text-center mb-6 max-w-sm">
+                        {activeTab === "all"
+                          ? "You haven't booked any appointments yet. Start by booking your first appointment."
+                          : `No ${activeTab === "upcoming" ? "upcoming" : activeTab} appointments found. Try adjusting your filters.`}
+                      </CardDescription>
+                      <Button
+                        asChild
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        <Link href="/services">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Book New Appointment
+                        </Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
+        )}
 
         {/* Dialogs */}
         {selectedAppointment && (
@@ -311,13 +380,13 @@ export default function MyAppointmentsPage() {
             <QRCodeDrawer
               open={showQR}
               onOpenChange={setShowQR}
-              bookingRef={selectedAppointment.bookingRef}
+              appointment={selectedAppointment}
             />
 
             <DocUploadDrawer
               open={showUpload}
               onOpenChange={setShowUpload}
-              currentDocs={selectedAppointment.docs}
+              currentDocs={[]}
               onDocsUpdate={handleDocsUpdate}
             />
 
@@ -325,7 +394,7 @@ export default function MyAppointmentsPage() {
               open={showCancel}
               onOpenChange={setShowCancel}
               onConfirm={confirmCancel}
-              bookingRef={selectedAppointment.bookingRef}
+              bookingRef={selectedAppointment.booking_reference}
             />
           </>
         )}

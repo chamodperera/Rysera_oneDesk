@@ -14,7 +14,6 @@ import {
   Copy,
   Calendar,
   Clock,
-  FileText,
   QrCode,
   Upload,
   XCircle,
@@ -22,29 +21,7 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import {
-  getServiceById,
-  getTimeslotById,
-  formatDate,
-  formatTime,
-} from "@/lib/demo-utils";
-import { departments } from "@/lib/demo-data";
-
-type Status = "booked" | "in-progress" | "completed" | "cancelled";
-
-interface Appointment {
-  id: string;
-  bookingRef: string;
-  serviceId: string;
-  timeslotId: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  notes?: string;
-  docs: { name: string; type: string; size: number }[];
-  status: Status;
-  createdAt: string;
-}
+import { Appointment } from "@/lib/api";
 
 interface AppointmentDetailsDialogProps {
   open: boolean;
@@ -66,27 +43,29 @@ export function AppointmentDetailsDialog({
   onFeedback,
 }: AppointmentDetailsDialogProps) {
   const { toast } = useToast();
-  const service = getServiceById(appointment.serviceId);
-  const timeslot = getTimeslotById(appointment.timeslotId);
-  const department = service
-    ? departments.find((d) => d.id === service.departmentId)
-    : null;
+  const service = appointment.service;
+  const timeslot = appointment.timeslot;
+  const user = appointment.user;
 
   const copyBookingRef = () => {
-    navigator.clipboard.writeText(appointment.bookingRef);
+    navigator.clipboard.writeText(appointment.booking_reference);
     toast({
       title: "Copied",
       description: "Booking reference copied to clipboard",
     });
   };
 
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString();
+  };
+
   const canCancel =
-    appointment.status === "booked" &&
+    appointment.status === "confirmed" &&
     timeslot &&
-    new Date(timeslot.date) > new Date();
+    new Date(timeslot.slot_date) > new Date();
   const canFeedback = appointment.status === "completed" && onFeedback;
 
-  if (!service || !timeslot || !department) {
+  if (!service || !timeslot) {
     return null;
   }
 
@@ -106,7 +85,7 @@ export function AppointmentDetailsDialog({
             <div>
               <p className="text-sm text-muted-foreground">Booking Reference</p>
               <p className="font-mono font-bold text-lg">
-                {appointment.bookingRef}
+                {appointment.booking_reference}
               </p>
             </div>
             <Button
@@ -129,14 +108,12 @@ export function AppointmentDetailsDialog({
                   variant="secondary"
                   className="bg-primary/10 text-primary"
                 >
-                  {department.name}
+                  Department {service.department_id}
                 </Badge>
               </div>
-              {service.description && (
-                <p className="text-sm text-muted-foreground">
-                  {service.description}
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                Duration: {service.duration_minutes} minutes
+              </p>
             </div>
           </div>
 
@@ -148,12 +125,12 @@ export function AppointmentDetailsDialog({
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-primary" />
-                <span>{formatDate(timeslot.date)}</span>
+                <span>{formatDate(timeslot.slot_date)}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Clock className="h-4 w-4 text-primary" />
                 <span>
-                  {formatTime(timeslot.start)} - {formatTime(timeslot.end)}
+                  {timeslot.start_time} - {timeslot.end_time}
                 </span>
               </div>
             </div>
@@ -167,47 +144,43 @@ export function AppointmentDetailsDialog({
             <div className="space-y-1 text-sm">
               <p>
                 <span className="font-medium">Name:</span>{" "}
-                {appointment.fullName}
+                {user ? `${user.first_name} ${user.last_name}` : "N/A"}
               </p>
               <p>
-                <span className="font-medium">Email:</span> {appointment.email}
+                <span className="font-medium">Email:</span>{" "}
+                {user?.email || "N/A"}
               </p>
               <p>
-                <span className="font-medium">Phone:</span> {appointment.phone}
+                <span className="font-medium">Phone:</span>{" "}
+                {user?.phone_number || "N/A"}
               </p>
             </div>
           </div>
 
-          {/* Documents */}
-          {appointment.docs.length > 0 && (
+          {/* Officer Information */}
+          {appointment.officer && (
             <>
               <Separator />
               <div className="space-y-3">
-                <h3 className="font-semibold">Uploaded Documents</h3>
-                <div className="space-y-2">
-                  {appointment.docs.map((doc, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center space-x-2 p-2 bg-gray-50 rounded"
-                    >
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm flex-1">{doc.name}</span>
-                    </div>
-                  ))}
+                <h3 className="font-semibold">Assigned Officer</h3>
+                <div className="space-y-1 text-sm">
+                  <p>
+                    <span className="font-medium">Officer:</span>{" "}
+                    {appointment.officer.user
+                      ? `${appointment.officer.user.first_name} ${appointment.officer.user.last_name}`
+                      : "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-medium">Position:</span>{" "}
+                    {appointment.officer.position}
+                  </p>
+                  {appointment.officer.user?.email && (
+                    <p>
+                      <span className="font-medium">Email:</span>{" "}
+                      {appointment.officer.user.email}
+                    </p>
+                  )}
                 </div>
-              </div>
-            </>
-          )}
-
-          {/* Notes */}
-          {appointment.notes && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="font-semibold">Additional Notes</h3>
-                <p className="text-sm text-muted-foreground bg-gray-50 p-3 rounded">
-                  {appointment.notes}
-                </p>
               </div>
             </>
           )}

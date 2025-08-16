@@ -212,7 +212,7 @@ export const useAppointmentBookingStore = create<AppointmentBookingState>(
 
         if (response.success && response.data) {
           set({
-            myAppointments: response.data.data?.appointments || [],
+            myAppointments: response.data.appointments || [],
             appointmentsFetched: true,
             loading: false,
           });

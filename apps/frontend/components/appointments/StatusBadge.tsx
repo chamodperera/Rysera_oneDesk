@@ -3,7 +3,12 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type Status = "booked" | "in-progress" | "completed" | "cancelled";
+type Status =
+  | "pending"
+  | "confirmed"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
 
 interface StatusBadgeProps {
   status: Status;
@@ -11,11 +16,15 @@ interface StatusBadgeProps {
 }
 
 const statusConfig = {
-  booked: {
-    label: "Booked",
+  pending: {
+    label: "Pending",
+    className: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100/80",
+  },
+  confirmed: {
+    label: "Confirmed",
     className: "bg-primary text-primary-foreground hover:bg-primary/80",
   },
-  "in-progress": {
+  in_progress: {
     label: "In Progress",
     className: "bg-orange-100 text-orange-800 hover:bg-orange-100/80",
   },

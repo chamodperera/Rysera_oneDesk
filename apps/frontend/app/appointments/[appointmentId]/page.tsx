@@ -186,7 +186,9 @@ export default function AppointmentConfirmationPage() {
                   <Calendar className="h-4 w-4 mr-2 text-gray-500" />
                   <span>
                     {appointment.timeslot
-                      ? new Date(appointment.timeslot.date).toLocaleDateString()
+                      ? new Date(
+                          appointment.timeslot.slot_date
+                        ).toLocaleDateString()
                       : "N/A"}
                   </span>
                 </div>
