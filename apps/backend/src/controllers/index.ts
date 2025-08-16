@@ -35,9 +35,12 @@ export abstract class BaseController {
   }
 }
 
+// Export controllers
+export { AuthController } from './authController';
+export { UserController } from './userController';
+export { DepartmentController } from './DepartmentController';
+
 // Controllers will be implemented in future phases:
-// - AuthController
-// - DepartmentController  
 // - ServiceController
 // - OfficerController
 // - TimeslotController

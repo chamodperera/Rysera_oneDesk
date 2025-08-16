@@ -153,7 +153,7 @@ We’ll handle them in dependency order:
 >
 > * Linked to departments via `department_id`.
 > * Pagination, filtering by name, sorting.
-> * Only Admin & Superadmin can modify. Public can GET.
+> * Only officer, Admin & Superadmin can modify. Public can GET.
 
 #### **Prompt 4.3 — Officers Module**
 
@@ -169,7 +169,7 @@ We’ll handle them in dependency order:
 >
 > * Linked to services via `service_id`.
 > * Real-time availability lock on booking.
-> * Admin & Superadmin manage; public read-only.
+> * officers, Admin & Superadmin manage; public read-only.
 
 #### **Prompt 4.5 — Appointments Module**
 
@@ -183,23 +183,23 @@ We’ll handle them in dependency order:
 > * Status flow: `Pending` → `In Progress` → `Completed` → (optional) `Cancelled`.
 > * Pagination & filtering by date/status for officer/admin views.
 
-#### **Prompt 4.6 — Documents Module**
+#### **Prompt 4.6 — Documents Module** (SKIPPED)
 
-> CRUD for documents linked to appointments.
+> ~~CRUD for documents linked to appointments.~~
 >
-> * Upload to Supabase storage.
-> * Max size 5MB; restrict file types (PDF, PNG, JPG).
-> * Citizens can upload only for their appointments.
+> * ~~Upload to Supabase storage.~~
+> * ~~Max size 5MB; restrict file types (PDF, PNG, JPG).~~
+> * ~~Citizens can upload only for their appointments.~~
 
-#### **Prompt 4.7 — Notifications Module**
+#### **Prompt 4.7 — Notifications Module** (SKIPPED)
 
-> Create table + API to log and send notifications.
+> ~~Create table + API to log and send notifications.~~
 >
-> * Email via SendGrid.
-> * Send synchronously.
-> * Store message, method, status.
+> * ~~Email via SendGrid.~~
+> * ~~Send synchronously.~~
+> * ~~Store message, method, status.~~
 
-#### **Prompt 4.8 — Feedback Module**
+#### **Prompt 4.8 — Feedback Module** (CURRENT)
 
 > Citizens can submit feedback linked to appointment.
 >
@@ -224,6 +224,8 @@ We’ll handle them in dependency order:
 **Prompt 6:**
 
 > Auto-generate Swagger/OpenAPI docs for all endpoints.
+>Keep order. Start from prompt 4.1 endpoints. Neglect skipped endpoints.
+>update user after each iteration of 4.x endpoint api documenting.
 >
 > * Include request/response schemas.
 > * Include authentication requirements per endpoint.
