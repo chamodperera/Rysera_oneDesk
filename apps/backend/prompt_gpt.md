@@ -254,9 +254,3 @@ We’ll handle them in dependency order:
 >
 > * Store in a separate `audit_logs` table with timestamp, user\_id, action, and metadata JSON.
 
----
-
-If you want, I can now **write all these prompts in exact, copy-paste-ready form for the coding agent**, with explicit command-like instructions and example payloads.
-That would make the process plug-and-play for your dev workflow.
-
-Do you want me to go ahead and prepare **those final ready-to-use prompts**?

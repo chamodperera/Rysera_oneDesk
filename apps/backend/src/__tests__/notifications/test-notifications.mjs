@@ -1,7 +1,15 @@
+<<<<<<< HEAD
 // Test script for notification functionality
 import { NotificationService } from "../../services/NotificationService.js";
 import { notificationRepository } from "../../models/index.js";
 import { NotificationType, NotificationStatus } from "../../types/database.js";
+=======
+// Test script for notification functionality  
+// Note: Run this after building the project with 'npm run build'
+import { NotificationService } from '../../services/NotificationService.js';
+import { notificationRepository } from '../../models/index.js';
+import { NotificationType, NotificationStatus } from '../../types/database.js';
+>>>>>>> 4d897a338bde0419d0e384055dc05554f448f102
 
 console.log("🧪 Testing Notification Module...");
 
@@ -92,6 +100,7 @@ async function testNotificationModule() {
 }
 
 // Run the test
+<<<<<<< HEAD
 testNotificationModule()
   .then(() => {
     console.log("✅ Notification module test completed");
@@ -100,3 +109,10 @@ testNotificationModule()
     console.error("❌ Test error:", error);
   });
 V;
+=======
+testNotificationModule().then(() => {
+  console.log('✅ Notification module test completed');
+}).catch(error => {
+  console.error('❌ Test error:', error);
+});
+>>>>>>> 4d897a338bde0419d0e384055dc05554f448f102
