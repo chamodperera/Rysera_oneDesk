@@ -2,9 +2,17 @@ import { create } from "zustand";
 import {
   timeslotApi,
   appointmentApi,
+  documentApi,
   type Timeslot,
   type Appointment,
 } from "./api";
+
+export interface DocumentFile {
+  file: File;
+  type: string;
+  comments?: string;
+  id: string; // Temporary ID for UI
+}
 
 interface BookingFormData {
   firstName: string;
@@ -12,7 +20,7 @@ interface BookingFormData {
   email: string;
   phone: string;
   notes: string;
-  documents: File[];
+  documents: DocumentFile[];
 }
 
 interface AppointmentBookingState {
@@ -63,6 +71,10 @@ interface AppointmentBookingState {
     timeslotId: number,
     userId: number
   ) => Promise<Appointment | null>;
+  uploadDocuments: (
+    appointmentId: number,
+    documents: DocumentFile[]
+  ) => Promise<boolean>;
   cancelAppointment: (id: number) => Promise<boolean>;
   updateAppointmentStatus: (
     id: number,
@@ -331,6 +343,50 @@ export const useAppointmentBookingStore = create<AppointmentBookingState>(
           loading: false,
         });
         return null;
+      }
+    },
+
+    uploadDocuments: async (
+      appointmentId: number,
+      documents: DocumentFile[]
+    ) => {
+      if (documents.length === 0) return true;
+
+      const state = get();
+      if (state.loading) return false;
+
+      set({ loading: true, error: null });
+
+      try {
+        const uploadPromises = documents.map(async (doc) => {
+          return documentApi.uploadDocument(
+            appointmentId,
+            doc.file,
+            doc.type,
+            doc.comments
+          );
+        });
+
+        const results = await Promise.all(uploadPromises);
+        const failedUploads = results.filter((result) => !result.success);
+
+        if (failedUploads.length > 0) {
+          set({
+            error: `Failed to upload ${failedUploads.length} document(s)`,
+            loading: false,
+          });
+          return false;
+        }
+
+        set({ loading: false });
+        return true;
+      } catch (error) {
+        console.error("Error uploading documents:", error);
+        set({
+          error: "Failed to upload documents",
+          loading: false,
+        });
+        return false;
       }
     },
 

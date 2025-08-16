@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   authApi,
+  TokenManager,
   type User,
   type LoginRequest,
   type RegisterRequest,
@@ -49,6 +50,11 @@ export const useAuthStore = create<AuthStore>()(
           const response = await authApi.login(credentials);
 
           if (response.success && response.data) {
+            // Store the token
+            if (response.data.token) {
+              TokenManager.setToken(response.data.token);
+            }
+
             set({
               user: response.data.user,
               isAuthenticated: true,
@@ -84,6 +90,11 @@ export const useAuthStore = create<AuthStore>()(
           const response = await authApi.register(userData);
 
           if (response.success && response.data) {
+            // Store the token
+            if (response.data.token) {
+              TokenManager.setToken(response.data.token);
+            }
+
             set({
               user: response.data.user,
               isAuthenticated: true,
@@ -113,6 +124,8 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
+        // Clear the token
+        TokenManager.removeToken();
         authApi.logout();
         set({
           user: null,
@@ -135,6 +148,7 @@ export const useAuthStore = create<AuthStore>()(
             });
           } else {
             // Token might be invalid, clear auth state
+            TokenManager.removeToken();
             authApi.logout();
             set({
               user: null,
@@ -144,6 +158,7 @@ export const useAuthStore = create<AuthStore>()(
           }
         } catch {
           // Token might be invalid, clear auth state
+          TokenManager.removeToken();
           authApi.logout();
           set({
             user: null,

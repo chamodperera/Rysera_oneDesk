@@ -19,7 +19,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { ArrowLeft, ArrowRight, CheckCircle } from "lucide-react";
-import { DocumentUpload } from "@/components/ui/document-upload";
+import {
+  DocumentUpload,
+  type DocumentFile,
+} from "@/components/booking/DocumentUpload";
 import { useIsAuthenticated, useUser } from "@/lib/auth-store";
 import { useDepartmentServiceStore } from "@/lib/department-service-store";
 import { useAppointmentBookingStore } from "@/lib/appointment-booking-store";
@@ -72,6 +75,7 @@ export default function BookingPage() {
     updateFormData,
     searchTimeslots,
     bookAppointment,
+    uploadDocuments,
     clearError,
   } = useAppointmentBookingStore();
 
@@ -262,25 +266,50 @@ export default function BookingPage() {
     }
 
     try {
+      // First, create the appointment
       const appointment = await bookAppointment(
         service.id,
         selectedTimeslot.id,
         user.id
       );
 
-      if (appointment) {
-        toast({
-          title: "Booking Successful!",
-          description: `Your appointment has been booked. Reference: ${appointment.booking_reference}`,
-        });
-        router.push(`/appointments/${appointment.id}`);
-      } else {
+      if (!appointment) {
         toast({
           title: "Booking Failed",
           description: error || "Failed to book appointment. Please try again.",
           variant: "destructive",
         });
+        return;
       }
+
+      // If there are documents to upload, upload them
+      if (formData.documents.length > 0) {
+        const documentsUploaded = await uploadDocuments(
+          appointment.id,
+          formData.documents
+        );
+
+        if (!documentsUploaded) {
+          // Appointment was created but documents failed to upload
+          toast({
+            title: "Appointment Booked",
+            description: `Your appointment has been booked (${appointment.booking_reference}), but some documents failed to upload. You can upload them later from your appointments page.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Booking Successful!",
+            description: `Your appointment has been booked with all documents uploaded. Reference: ${appointment.booking_reference}`,
+          });
+        }
+      } else {
+        toast({
+          title: "Booking Successful!",
+          description: `Your appointment has been booked. Reference: ${appointment.booking_reference}`,
+        });
+      }
+
+      router.push(`/dashboard/appointments`);
     } catch (error) {
       console.error("Booking error:", error);
       toast({
@@ -507,12 +536,16 @@ export default function BookingPage() {
 
             <DocumentUpload
               documents={formData.documents}
-              onDocumentsChange={(files: File[]) =>
-                updateFormData({ documents: files })
+              onDocumentsChange={(documents: DocumentFile[]) =>
+                updateFormData({ documents })
               }
-              maxFiles={10}
-              maxSize={10}
-              acceptedTypes={[".pdf", ".jpg", ".jpeg", ".png"]}
+              maxFiles={5}
+              acceptedTypes={[
+                "application/pdf",
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+              ]}
             />
           </div>
         );

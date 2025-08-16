@@ -364,10 +364,6 @@ export default function MyAppointmentsPage() {
                 setShowDetails(false);
                 setShowQR(true);
               }}
-              onUploadDocs={() => {
-                setShowDetails(false);
-                setShowUpload(true);
-              }}
               onCancel={() => {
                 setShowDetails(false);
                 setShowCancel(true);

@@ -23,39 +23,66 @@ import {
   X,
   MessageSquare,
 } from "lucide-react";
+import { useAuthStore } from "@/lib/auth-store";
+import { TokenManager } from "@/lib/api";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { user, isAuthenticated, logout, loadUser } = useAuthStore();
 
   useEffect(() => {
-    // Check admin session
-    const session = localStorage.getItem("onedesk-admin-session");
-    if (!session && pathname !== "/admin/login") {
-      router.push("/admin/login");
-    } else {
-      setIsAuthenticated(true);
+    // Skip authentication check for login page
+    if (pathname === "/admin/login") {
+      return;
     }
-  }, [pathname, router]);
 
+    // Check if user is authenticated and has admin role
+    const token = TokenManager.getToken();
+
+    if (!token) {
+      // No token, redirect to login
+      router.push("/admin/login");
+      return;
+    }
+
+    if (!user && isAuthenticated === false) {
+      // Try to load user data
+      loadUser().then(() => {
+        // Check again after loading
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser || currentUser.role !== "admin") {
+          router.push("/admin/login");
+        }
+      });
+    } else if (user && user.role !== "admin") {
+      // User exists but is not admin
+      router.push("/");
+    }
+  }, [pathname, router, user, isAuthenticated, loadUser]);
   const handleLogout = () => {
-    localStorage.removeItem("onedesk-admin-session");
+    logout();
     router.push("/admin/login");
   };
 
   const navItems = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/appointments", label: "Appointments", icon: Users },
+    { href: "/admin/users", label: "Users", icon: Users },
+    { href: "/admin/appointments", label: "Appointments", icon: Calendar },
     { href: "/admin/feedback", label: "Feedback", icon: MessageSquare },
     { href: "/admin/schedule", label: "Schedule", icon: Calendar },
     { href: "/admin/services", label: "Services", icon: Settings },
   ];
+
+  // For login page, render without authentication checks
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
 
   if (!isAuthenticated) {
     return null; // Will redirect in useEffect
@@ -123,7 +150,7 @@ export default function AdminLayout({
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      A
+                      {user ? `${user.first_name[0]}${user.last_name[0]}` : "A"}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -132,10 +159,12 @@ export default function AdminLayout({
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      Administrator
+                      {user
+                        ? `${user.first_name} ${user.last_name}`
+                        : "Administrator"}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      admin@example.com
+                      {user?.email || "admin@example.com"}
                     </p>
                   </div>
                 </DropdownMenuLabel>

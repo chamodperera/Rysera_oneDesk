@@ -15,11 +15,11 @@ import {
   Calendar,
   Clock,
   QrCode,
-  Upload,
   XCircle,
   MessageSquare,
 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
+import { AppointmentDocuments } from "./AppointmentDocuments";
 import { useToast } from "@/hooks/use-toast";
 import { Appointment } from "@/lib/api";
 
@@ -28,7 +28,6 @@ interface AppointmentDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   appointment: Appointment;
   onShowQR: () => void;
-  onUploadDocs: () => void;
   onCancel: () => void;
   onFeedback?: () => void;
 }
@@ -38,7 +37,6 @@ export function AppointmentDetailsDialog({
   onOpenChange,
   appointment,
   onShowQR,
-  onUploadDocs,
   onCancel,
   onFeedback,
 }: AppointmentDetailsDialogProps) {
@@ -184,6 +182,16 @@ export function AppointmentDetailsDialog({
               </div>
             </>
           )}
+
+          {/* Documents Section */}
+          <Separator />
+          <AppointmentDocuments
+            appointmentId={appointment.id}
+            canUpload={
+              appointment.status !== "cancelled" &&
+              appointment.status !== "completed"
+            }
+          />
         </div>
 
         <DialogFooter>
@@ -195,15 +203,6 @@ export function AppointmentDetailsDialog({
             >
               <QrCode className="mr-2 h-4 w-4" />
               Show QR
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={onUploadDocs}
-              className="focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Docs
             </Button>
 
             {canFeedback && (

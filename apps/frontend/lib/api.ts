@@ -152,8 +152,64 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface Document {
+  id: number;
+  appointment_id: number;
+  user_id: number;
+  file_name: string;
+  file_path: string;
+  document_type: string;
+  status: "pending" | "approved" | "rejected";
+  comments?: string;
+  uploaded_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Officer {
+  id: number;
+  user_id: number;
+  department_id: number;
+  position: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone_number: string;
+    role: string;
+  };
+  department?: {
+    id: number;
+    name: string;
+    description: string;
+    contact_info: string;
+  };
+}
+
+export interface CreateOfficerRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  password: string;
+  department_id: number;
+  position?: string;
+}
+
+export interface CreateUserRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  password: string;
+  role: "citizen" | "officer" | "admin";
+}
+
 // Token management
-class TokenManager {
+export class TokenManager {
   private static readonly TOKEN_KEY = "onedesk_token";
 
   static getToken(): string | null {
@@ -518,8 +574,35 @@ export const timeslotApi = {
 
 // Appointment API
 export const appointmentApi = {
-  async getAll(): Promise<ApiResponse<{ data: AppointmentResponse }>> {
-    return ApiClient.get<{ data: AppointmentResponse }>("/appointments");
+  async getAll(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    date_from?: string;
+    date_to?: string;
+    service_id?: number;
+    user_id?: number;
+    officer_id?: number;
+  }): Promise<ApiResponse<{ data: AppointmentResponse }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.status) queryParams.append("status", params.status);
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.date_from) queryParams.append("date_from", params.date_from);
+    if (params?.date_to) queryParams.append("date_to", params.date_to);
+    if (params?.service_id)
+      queryParams.append("service_id", params.service_id.toString());
+    if (params?.user_id)
+      queryParams.append("user_id", params.user_id.toString());
+    if (params?.officer_id)
+      queryParams.append("officer_id", params.officer_id.toString());
+
+    const url = queryParams.toString()
+      ? `/appointments?${queryParams}`
+      : "/appointments";
+    return ApiClient.get<{ data: AppointmentResponse }>(url);
   },
 
   async getMy(): Promise<ApiResponse<{ appointments: Appointment[] }>> {
@@ -596,4 +679,265 @@ export const appointmentApi = {
   },
 };
 
-export { TokenManager };
+// Admin API
+export const adminApi = {
+  // User management
+  async getAllUsers(params?: {
+    page?: number;
+    limit?: number;
+    role?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }): Promise<
+    ApiResponse<{
+      users: User[];
+      pagination: PaginationInfo;
+    }>
+  > {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.role) queryParams.append("role", params.role);
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.sortBy) queryParams.append("sortBy", params.sortBy);
+    if (params?.sortOrder) queryParams.append("sortOrder", params.sortOrder);
+
+    return ApiClient.get<{
+      users: User[];
+      pagination: PaginationInfo;
+    }>(`/users?${queryParams}`);
+  },
+
+  async getUserById(id: number): Promise<ApiResponse<{ user: User }>> {
+    return ApiClient.get<{ user: User }>(`/users/${id}`);
+  },
+
+  async createUser(
+    userData: CreateUserRequest
+  ): Promise<ApiResponse<{ user: User; token?: string }>> {
+    return ApiClient.post<{ user: User; token?: string }>(
+      "/auth/admin/register",
+      userData
+    );
+  },
+
+  async updateUser(
+    id: number,
+    userData: Partial<CreateUserRequest>
+  ): Promise<ApiResponse<{ user: User }>> {
+    return ApiClient.put<{ user: User }>(`/users/${id}`, userData);
+  },
+
+  async deleteUser(id: number): Promise<ApiResponse<{ message: string }>> {
+    return ApiClient.delete(`/users/${id}`);
+  },
+
+  async getUsersByRole(role: string): Promise<ApiResponse<{ users: User[] }>> {
+    return ApiClient.get<{ users: User[] }>(`/users/role/${role}`);
+  },
+
+  // Officer management
+  async createOfficer(officerData: CreateOfficerRequest): Promise<
+    ApiResponse<{
+      user: User;
+      officer: Officer;
+      token?: string;
+    }>
+  > {
+    // First create the user account
+    const userResponse = await this.createUser({
+      first_name: officerData.first_name,
+      last_name: officerData.last_name,
+      email: officerData.email,
+      phone_number: officerData.phone_number,
+      password: officerData.password,
+      role: "officer",
+    });
+
+    if (!userResponse.success || !userResponse.data) {
+      return {
+        success: false,
+        message: userResponse.message || "Failed to create user account",
+        error: userResponse.error,
+      };
+    }
+
+    // Then create the officer profile
+    const officerResponse = await officerApi.create({
+      user_id: userResponse.data.user.id,
+      department_id: officerData.department_id,
+      position: officerData.position || null,
+    });
+
+    if (!officerResponse.success || !officerResponse.data) {
+      // If officer creation fails, we should ideally delete the user account
+      // For now, just return the error
+      return {
+        success: false,
+        message: officerResponse.message || "Failed to create officer profile",
+        error: officerResponse.error,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        user: userResponse.data.user,
+        officer: officerResponse.data.officer,
+        token: userResponse.data.token,
+      },
+      message: "Officer created successfully",
+    };
+  },
+};
+
+// Officer API
+export const officerApi = {
+  async getAll(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    department_id?: number;
+    position?: string;
+    sort_by?: string;
+    sort_order?: string;
+  }): Promise<
+    ApiResponse<{
+      officers: Officer[];
+      pagination: PaginationInfo;
+    }>
+  > {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append("page", params.page.toString());
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.search) queryParams.append("search", params.search);
+    if (params?.department_id)
+      queryParams.append("department_id", params.department_id.toString());
+    if (params?.position) queryParams.append("position", params.position);
+    if (params?.sort_by) queryParams.append("sort_by", params.sort_by);
+    if (params?.sort_order) queryParams.append("sort_order", params.sort_order);
+
+    return ApiClient.get<{
+      officers: Officer[];
+      pagination: PaginationInfo;
+    }>(`/officers?${queryParams}`);
+  },
+
+  async getById(id: number): Promise<ApiResponse<{ officer: Officer }>> {
+    return ApiClient.get<{ officer: Officer }>(`/officers/${id}`);
+  },
+
+  async getByDepartment(
+    departmentId: number
+  ): Promise<ApiResponse<{ officers: Officer[] }>> {
+    return ApiClient.get<{ officers: Officer[] }>(
+      `/officers/department/${departmentId}`
+    );
+  },
+
+  async search(query: string): Promise<ApiResponse<{ officers: Officer[] }>> {
+    return ApiClient.get<{ officers: Officer[] }>(
+      `/officers/search?q=${encodeURIComponent(query)}`
+    );
+  },
+
+  async getAvailableForService(
+    serviceId: number
+  ): Promise<ApiResponse<{ officers: Officer[] }>> {
+    return ApiClient.get<{ officers: Officer[] }>(
+      `/officers/service/${serviceId}/available`
+    );
+  },
+
+  async getMyProfile(): Promise<ApiResponse<{ officer: Officer }>> {
+    return ApiClient.get<{ officer: Officer }>("/officers/profile/me");
+  },
+
+  async create(officerData: {
+    user_id: number;
+    department_id: number;
+    position: string | null;
+  }): Promise<ApiResponse<{ officer: Officer }>> {
+    return ApiClient.post<{ officer: Officer }>("/officers", officerData);
+  },
+
+  async update(
+    id: number,
+    officerData: Partial<{
+      department_id: number;
+      position: string;
+    }>
+  ): Promise<ApiResponse<{ officer: Officer }>> {
+    return ApiClient.put<{ officer: Officer }>(`/officers/${id}`, officerData);
+  },
+
+  async delete(id: number): Promise<ApiResponse<{ message: string }>> {
+    return ApiClient.delete(`/officers/${id}`);
+  },
+};
+
+// Document API
+export const documentApi = {
+  async uploadDocument(
+    appointmentId: number,
+    file: File,
+    documentType: string,
+    comments?: string
+  ): Promise<
+    ApiResponse<{
+      id: number;
+      appointment_id: number;
+      file_name: string;
+      document_type: string;
+      status: string;
+      uploaded_at: string;
+      comments?: string;
+    }>
+  > {
+    const formData = new FormData();
+    formData.append("document", file);
+    formData.append("appointment_id", appointmentId.toString());
+    formData.append("document_type", documentType);
+    if (comments) {
+      formData.append("comments", comments);
+    }
+
+    const token = TokenManager.getToken();
+    const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    return response.json();
+  },
+
+  async getAppointmentDocuments(
+    appointmentId: number
+  ): Promise<ApiResponse<Document[]>> {
+    return ApiClient.get<Document[]>(`/documents/appointment/${appointmentId}`);
+  },
+
+  async downloadDocument(documentId: number): Promise<
+    ApiResponse<{
+      document_id: number;
+      file_name: string;
+      download_url: string;
+      expires_at: string;
+    }>
+  > {
+    return ApiClient.get<{
+      document_id: number;
+      file_name: string;
+      download_url: string;
+      expires_at: string;
+    }>(`/documents/download/${documentId}`);
+  },
+
+  async getMyDocuments(): Promise<ApiResponse<Document[]>> {
+    return ApiClient.get<Document[]>("/documents/my-documents");
+  },
+};

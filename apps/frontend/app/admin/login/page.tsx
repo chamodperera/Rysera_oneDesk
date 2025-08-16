@@ -16,7 +16,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, User, ArrowRight, Shield } from "lucide-react";
+import { useAuthStore } from "@/lib/auth-store";
+import { Lock, User } from "lucide-react";
 
 export default function AdminLoginPage() {
   const [adminData, setAdminData] = useState({
@@ -32,53 +33,100 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { login } = useAuthStore();
 
-  const handleAdminSubmit = (e: React.FormEvent) => {
+  const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate admin login process
-    setTimeout(() => {
-      toast({
-        title: "Admin login (demo)",
-        description: "Successfully logged in as administrator",
+    try {
+      const result = await login({
+        email: adminData.email,
+        password: adminData.password,
       });
-      setIsLoading(false);
-      // Store admin session
-      if (typeof window !== "undefined") {
-        localStorage.setItem("onedesk-admin-session", "true");
-        localStorage.setItem("onedesk-user-role", "admin");
+
+      if (result.success) {
+        // Check user role and redirect accordingly
+        const user = useAuthStore.getState().user;
+        if (user?.role === "admin") {
+          toast({
+            title: "Success",
+            description: "Successfully logged in as administrator",
+          });
+          router.push("/admin");
+        } else if (user?.role === "officer") {
+          toast({
+            title: "Success",
+            description: "Successfully logged in as officer",
+          });
+          router.push("/officer");
+        } else {
+          toast({
+            title: "Access Denied",
+            description: "Invalid role for this portal",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Login Failed",
+          description: result.error || "Invalid credentials",
+          variant: "destructive",
+        });
       }
-      router.push("/admin");
-    }, 1000);
-  };
-
-  const handleOfficerSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    // Simulate officer login process
-    setTimeout(() => {
+    } catch {
       toast({
-        title: "Officer login (demo)",
-        description: "Successfully logged in as officer",
+        title: "Login Failed",
+        description: "An error occurred during login",
+        variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
-      // Store officer session
-      if (typeof window !== "undefined") {
-        localStorage.setItem("onedesk-admin-session", "true");
-        localStorage.setItem("onedesk-user-role", "officer");
-      }
-      router.push("/admin");
-    }, 1000);
-  };
-
-  const handleContinueToAdmin = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("onedesk-admin-session", "true");
-      localStorage.setItem("onedesk-user-role", "admin");
     }
-    router.push("/admin");
+  };
+
+  const handleOfficerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const result = await login({
+        email: officerData.email,
+        password: officerData.password,
+      });
+
+      if (result.success) {
+        // Check if user is officer
+        const user = useAuthStore.getState().user;
+        if (user?.role === "officer") {
+          toast({
+            title: "Success",
+            description: "Successfully logged in as officer",
+          });
+          router.push("/officer");
+        } else {
+          toast({
+            title: "Access Denied",
+            description: "You don't have officer privileges",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Login Failed",
+          description: result.error || "Invalid credentials",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Login Failed",
+        description: "An error occurred during login",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -120,7 +168,7 @@ export default function AdminLoginPage() {
                       <Input
                         id="admin-email"
                         type="email"
-                        placeholder="admin@example.com"
+                        placeholder="admin@onedesk.gov.lk"
                         value={adminData.email}
                         onChange={(e) =>
                           setAdminData({ ...adminData, email: e.target.value })
@@ -248,23 +296,6 @@ export default function AdminLoginPage() {
                 </div>
               </TabsContent>
             </Tabs>
-
-            {/* Demo Section */}
-            <div className="mt-6 pt-6 border-t">
-              <div className="text-center space-y-3">
-                <p className="text-sm text-gray-600">
-                  This is a demo environment
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={handleContinueToAdmin}
-                  className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  Continue to Admin Portal
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
